@@ -1,7 +1,6 @@
 # Build stage
 FROM node:23.11.0-slim as builder
 
-# Add security-related labels
 LABEL org.opencontainers.image.source="https://github.com/ericblue/modern-start-page"
 LABEL org.opencontainers.image.description="A modern, customizable browser start page"
 LABEL org.opencontainers.image.licenses="MIT"
@@ -12,16 +11,13 @@ LABEL org.opencontainers.image.authors="Eric Blue <ericblue76@gmail.com>"
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install dependencies
 COPY package*.json ./
+RUN npm install
 
-# Install ALL dependencies (including dev) for build
-RUN npm install && npm cache clean --force
-
-# Copy source code
+# Copy source files and build the app
 COPY . .
-
-# Build the application
+ENV NODE_ENV=production
 RUN npm run build
 
 # Production stage
@@ -33,36 +29,39 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 # Set working directory
 WORKDIR /app
 
-# Copy built files and production dependencies from builder
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
+# Environment variables
+ENV NODE_ENV=production
+ENV ASTRO_TELEMETRY_DISABLED=1
+ENV HOST=0.0.0.0
+ENV PORT=4000
 
-# Clean up unnecessary files and tools
+# Install minimal debugging tools
 RUN apt-get update && \
-    apt-get remove -y npm && \
-    apt-get autoremove -y && \
+    apt-get install -y net-tools && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    rm -rf /usr/local/lib/node_modules && \
-    find /app/node_modules -type f -name "*.md" -delete && \
-    find /app/node_modules -type f -name "*.ts" -delete && \
-    find /app/node_modules -type f -name "*.map" -delete && \
-    find /app/node_modules -type d -name "test" -exec rm -rf {} + 2>/dev/null || true && \
-    find /app/node_modules -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true && \
-    find /app/node_modules -type d -name "docs" -exec rm -rf {} + 2>/dev/null || true && \
-    find /app/node_modules -type d -name "doc" -exec rm -rf {} + 2>/dev/null || true && \
-    find /app/node_modules -type d -name "example" -exec rm -rf {} + 2>/dev/null || true && \
-    find /app/node_modules -type d -name "examples" -exec rm -rf {} + 2>/dev/null || true
+    rm -rf /var/lib/apt/lists/*
 
-# Set ownership to non-root user
+# Copy built app and dependencies from builder
+COPY --from=builder /app /app
+
+# Clean up node_modules bloat (safe version)
+RUN find /app/node_modules -type d \( \
+    -name "test" -o -name "tests" -o \
+    -name "example" -o -name "examples" -o \
+\) -exec rm -rf {} + 2>/dev/null || true && \
+    find /app/node_modules -type f -name "*.md" -delete && \
+    find /app/node_modules -type f -name "*.map" -delete
+
+# Set file ownership
 RUN chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser
 
-# Expose the port the app runs on
+# Expose application port
 EXPOSE 4000
 
-# Start the application (removed --host flag as it's not supported)
-CMD ["node", "dist/server/entry.mjs"]
+# Temporarily workaround for Astro preview server; issues with static assets serving from entry.mjs or custom express servers
+
+# Start Astro preview server
+CMD ["sh", "-c", "npm run preview"]

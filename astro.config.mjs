@@ -10,6 +10,7 @@ dotenv.config();
 
 // https://astro.build/config
 export default defineConfig({
+  site: process.env.SITE || 'http://localhost:4000', 
   output: 'server',
   adapter: node({
     mode: 'standalone'
@@ -22,12 +23,13 @@ export default defineConfig({
   ],
   server: {
     port: parseInt(process.env.PORT || '4000'),
-    host: process.env.HOST || 'localhost',
+    host: process.env.HOST || '0.0.0.0',
     headers: {
       'Cache-Control': 'no-cache'
     }
   },
   vite: {
+    base: '/',
     optimizeDeps: {
       include: [
         'react',

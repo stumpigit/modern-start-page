@@ -10,6 +10,6 @@ services:
     volumes:
       - ${CONFIG_DIR:-./data}:/app/data
     environment:
-      - PORT=4000
       - HOST=0.0.0.0
+      - PORT=4000
     restart: unless-stopped 
