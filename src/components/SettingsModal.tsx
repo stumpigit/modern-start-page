@@ -595,7 +595,19 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-medium">Weather Widget</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-medium">Weather Widget</h3>
+              <div className="group relative">
+                <Icon name="Info" size={16} className="text-secondary-400 cursor-help" />
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64 p-2 bg-secondary-800 text-sm text-secondary-100 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-[2000]">
+                  To use the weather widget, you need to:
+                  <ol className="list-decimal list-inside mt-1 space-y-1">
+                    <li>Get an API key from <a href="https://openweathermap.org/api" target="_blank" rel="noopener noreferrer" className="text-primary-400 hover:text-primary-300">OpenWeatherMap</a></li>
+                    <li>Set the <code className="bg-secondary-700 px-1 rounded">PUBLIC_OPENWEATHER_API_KEY</code> environment variable</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
             <p className="text-sm text-gray-400">Display current weather information</p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">

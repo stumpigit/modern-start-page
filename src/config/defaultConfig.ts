@@ -61,11 +61,11 @@ export const defaultConfig: UserConfig = {
   showSearchBar: true,
   widgets: {
     weather: {
-      enabled: true,
+      enabled: false,
       useCelsius: false
     },
     clock: {
-      enabled: true,
+      enabled: false,
       showSeconds: true,
     },
   }
