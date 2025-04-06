@@ -158,6 +158,33 @@ docker build -t modern-start-page:latest .
 docker run -p 4000:4000 modern-start-page:latest
 ```
 
+## Setting as Default Home Page
+
+### Google Chrome
+1. Click the three-dot menu (⋮) in the top-right corner
+2. Go to Settings
+3. Under "On startup", select "Open a specific page or set of pages"
+4. Click "Add a new page"
+5. Enter your Modern Start Page URL (e.g., `http://localhost:4000` or your deployed URL)
+6. Click "Add"
+
+### Mozilla Firefox
+1. Click the three-line menu (☰) in the top-right corner
+2. Go to Settings
+3. Under "Home" section, find "Homepage and new windows"
+4. Select "Custom URLs..."
+5. Enter your Modern Start Page URL (e.g., `http://localhost:4000` or your deployed URL)
+6. Click "Save"
+
+### Safari
+1. Click Safari in the menu bar
+2. Go to Settings (or Preferences)
+3. Select the "General" tab
+4. In the "Homepage" field, enter your Modern Start Page URL (e.g., `http://localhost:4000` or your deployed URL)
+5. Close the settings window
+
+> **Note:** If you're running Modern Start Page locally, make sure to use the correct port number (default is 4000). For production deployments, use your deployed URL.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
