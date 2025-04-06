@@ -47,7 +47,7 @@ $RECYCLE.BIN/
 .directory
 
 # Project specific
-data/
+./data/config.json
 *.db
 *.sqlite
 *.sqlite3

@@ -1,0 +1,77 @@
+{
+  "contexts": [
+    {
+      "id": "personal",
+      "name": "Personal",
+      "categories": [
+        {
+          "name": "Media",
+          "displayMode": "icon",
+          "links": [
+            { "name": "Netflix", "url": "https://netflix.com", "icon": "Tv" },
+            { "name": "YouTube", "url": "https://youtube.com", "icon": "Youtube" },
+            { "name": "Spotify", "url": "https://spotify.com", "icon": "Music" },
+            { "name": "Twitch", "url": "https://twitch.tv", "icon": "Video" }
+          ]
+        },
+        {
+          "name": "Social",
+          "displayMode": "icon",
+          "links": [
+            { "name": "Twitter", "url": "https://twitter.com", "icon": "Twitter" },
+            { "name": "Reddit", "url": "https://reddit.com", "icon": "MessageSquare" },
+            { "name": "Instagram", "url": "https://instagram.com", "icon": "Image" }
+          ]
+        },
+        {
+          "name": "Tools",
+          "displayMode": "icon",
+          "links": [
+            { "name": "Gmail", "url": "https://mail.google.com", "icon": "Mail" },
+            { "name": "Drive", "url": "https://drive.google.com", "icon": "HardDrive" },
+            { "name": "Calendar", "url": "https://calendar.google.com", "icon": "Calendar" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "work",
+      "name": "Work",
+      "categories": [
+        {
+          "name": "Development",
+          "displayMode": "icon",
+          "links": [
+            { "name": "GitHub", "url": "https://github.com", "icon": "Github" },
+            { "name": "GitLab", "url": "https://gitlab.com", "icon": "Gitlab" },
+            { "name": "Stack Overflow", "url": "https://stackoverflow.com", "icon": "Code" },
+            { "name": "Dev Docs", "url": "https://devdocs.io", "icon": "BookOpen" }
+          ]
+        },
+        {
+          "name": "Communication",
+          "displayMode": "icon",
+          "links": [
+            { "name": "Slack", "url": "https://slack.com", "icon": "MessageSquare" },
+            { "name": "Teams", "url": "https://teams.microsoft.com", "icon": "Users" },
+            { "name": "Zoom", "url": "https://zoom.us", "icon": "Video" }
+          ]
+        },
+        {
+          "name": "Productivity",
+          "displayMode": "icon",
+          "links": [
+            { "name": "Jira", "url": "https://atlassian.net", "icon": "Kanban" },
+            { "name": "Confluence", "url": "https://confluence.com", "icon": "Book" },
+            { "name": "Notion", "url": "https://notion.so", "icon": "FileText" }
+          ]
+        }
+      ]
+    }
+  ],
+  "activeContext": "personal",
+  "theme": "Ocean",
+  "gridColumns": 3,
+  "displayMode": "icon",
+  "showCategoryBorders": true
+} 
