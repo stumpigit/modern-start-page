@@ -34,6 +34,7 @@ export interface UserConfig {
   gridColumns: number;
   displayMode: 'icon' | 'list';
   showCategoryBorders: boolean;
+  showSearchBar: boolean;
   widgets: WidgetSettings;
 }
 

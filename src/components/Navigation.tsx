@@ -2,6 +2,7 @@ import { type UserConfig } from '../config/types';
 import ThemeSwitcher from './ThemeSwitcher';
 import ContextSwitcher from './ContextSwitcher';
 import SettingsButton from './SettingsButton';
+import { Icon } from './Icon';
 
 interface NavigationProps {
   config: UserConfig;
@@ -26,6 +27,13 @@ export default function Navigation({ config, onConfigChange }: NavigationProps) 
         activeContext={config.activeContext}
         onContextChange={handleContextChange}
       />
+      <button
+        onClick={() => onConfigChange({ ...config, showSearchBar: !config.showSearchBar })}
+        className="flex items-center space-x-2 px-3 py-1 rounded bg-secondary-700/50 text-secondary-300 hover:bg-secondary-700"
+      >
+        <Icon name="Search" size={20} />
+        <span>Search</span>
+      </button>
       <SettingsButton config={config} onConfigChange={onConfigChange} />
     </nav>
   );

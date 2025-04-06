@@ -23,6 +23,19 @@ export const ConfigContext = createContext<{
 export default function ConfigProvider({ initialConfig }: ConfigProviderProps) {
   const [config, setConfig] = useState<UserConfig>(initialConfig);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Toggle search bar with Ctrl/Cmd + Shift + S
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleConfigChange({ ...config, showSearchBar: !config.showSearchBar });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [config]);
+
   const handleConfigChange = async (newConfig: UserConfig) => {
     console.log('ConfigProvider: Starting config change with:', newConfig);
     try {
@@ -57,9 +70,11 @@ export default function ConfigProvider({ initialConfig }: ConfigProviderProps) {
           <SystemStatus />
         </div>
       </div>
-      <div className="mt-8">
-        <Search />
-      </div>
+      {config.showSearchBar && (
+        <div className="mt-8">
+          <Search />
+        </div>
+      )}
       <div className="mt-8">
         <div className="grid grid-cols-3 gap-4">
           {config.widgets?.weather?.enabled && (

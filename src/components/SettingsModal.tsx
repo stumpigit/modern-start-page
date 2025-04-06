@@ -40,7 +40,7 @@ interface SettingsModalProps {
   onConfigChange: (newConfig: UserConfig) => Promise<void>;
 }
 
-type Tab = 'contexts' | 'bookmarks' | 'appearance' | 'backup' | 'widgets';
+type Tab = 'contexts' | 'bookmarks' | 'appearance' | 'backup' | 'widgets' | 'about';
 
 // Add this new component for sortable items
 function SortableItem({ id, children }: { id: string; children: React.ReactNode }) {
@@ -79,6 +79,7 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
   const [activeTab, setActiveTab] = useState<Tab>('contexts');
   const [editingContext, setEditingContext] = useState<Context | null>(null);
   const [editingBookmark, setEditingBookmark] = useState<Category | null>(null);
+  const [selectedContextId, setSelectedContextId] = useState(config.activeContext);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -213,15 +214,21 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
   const handleBookmarkSave = async (category: Category, contextId: string) => {
     console.log('SettingsModal: Starting bookmark save with:', { category, contextId });
     const newConfig = { ...config };
-    const contextIndex = newConfig.contexts.findIndex(c => c.id === contextId);
+    const contextIndex = newConfig.contexts.findIndex(c => c.id === selectedContextId);
     
     if (contextIndex >= 0) {
       const context = newConfig.contexts[contextIndex];
-      const categoryIndex = context.categories.findIndex(c => c.name === category.name);
       
-      if (categoryIndex >= 0) {
+      // If we're editing an existing category, find it by its original name
+      const originalCategory = editingBookmark?.name ? 
+        context.categories.find(c => c.name === editingBookmark.name) : null;
+      
+      if (originalCategory) {
         // Update existing category
-        context.categories[categoryIndex] = category;
+        const categoryIndex = context.categories.findIndex(c => c.name === originalCategory.name);
+        if (categoryIndex >= 0) {
+          context.categories[categoryIndex] = category;
+        }
       } else {
         // Add new category
         context.categories.push(category);
@@ -239,7 +246,7 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
         setToast({ message: 'Failed to update bookmark', type: 'error' });
       }
     } else {
-      console.error('Context not found for ID:', contextId);
+      console.error('Context not found for ID:', selectedContextId);
       setToast({ message: 'Context not found', type: 'error' });
     }
     
@@ -331,6 +338,22 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
       displayMode: e.target.value as 'icon' | 'list'
     };
     await handleConfigUpdate(newConfig);
+  };
+
+  const handleSearchBarToggle = async (enabled: boolean) => {
+    console.log('Search bar toggle:', enabled);
+    console.log('Current config:', config);
+    const newConfig = {
+      ...config,
+      showSearchBar: enabled
+    };
+    console.log('New config:', newConfig);
+    try {
+      await handleConfigUpdate(newConfig);
+      console.log('Search bar toggle successful');
+    } catch (error) {
+      console.error('Error toggling search bar:', error);
+    }
   };
 
   const AppearanceSettings = () => {
@@ -648,6 +671,50 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
     );
   };
 
+  const AboutSettings = () => {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-secondary-200">About Modern Start Page</h3>
+          <p className="text-secondary-300">
+            A modern, customizable start page for your browser and new tab page.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-secondary-200">Links</h3>
+          <div className="space-y-2">
+            <a
+              href="https://github.com/ericblue/modern-start-page"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center space-x-2 text-primary-400 hover:text-primary-300"
+            >
+              <Icon name="Github" size={16} />
+              <span>GitHub Repository</span>
+            </a>
+            <a
+              href="https://about.ericblue.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center space-x-2 text-primary-400 hover:text-primary-300"
+            >
+              <Icon name="User" size={16} />
+              <span>Author Website</span>
+            </a>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-secondary-200">License</h3>
+          <p className="text-secondary-300">
+            This project is licensed under the MIT License.
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <div className={`fixed inset-0 bg-black/50 flex items-start justify-center pt-10 z-[1000] ${isOpen ? '' : 'hidden'}`}>
@@ -710,6 +777,15 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
               <Icon name="Database" size={16} />
               <span>Backup</span>
             </button>
+            <button
+              onClick={() => setActiveTab('about')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded ${
+                activeTab === 'about' ? 'bg-primary-500/20 text-primary-400' : 'text-secondary-300 hover:bg-secondary-800'
+              }`}
+            >
+              <Icon name="Info" size={16} />
+              <span>About</span>
+            </button>
           </div>
 
           {/* Content */}
@@ -756,7 +832,20 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
             {activeTab === 'bookmarks' && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Bookmarks</h3>
+                  <div className="flex items-center space-x-4">
+                    <h3 className="text-lg font-semibold">Bookmarks</h3>
+                    <select
+                      value={selectedContextId}
+                      onChange={(e) => setSelectedContextId(e.target.value)}
+                      className="px-3 py-1 rounded bg-secondary-800 border border-secondary-700 text-secondary-200"
+                    >
+                      {config.contexts.map(context => (
+                        <option key={context.id} value={context.id}>
+                          {context.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <button
                     onClick={() => setEditingBookmark({ name: '', displayMode: 'icon', links: [] })}
                     className="flex items-center space-x-1 px-3 py-1 rounded bg-primary-500/20 text-primary-400 hover:bg-primary-500/30"
@@ -765,50 +854,52 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
                     <span>Add Bookmark</span>
                   </button>
                 </div>
-                {config.contexts.map(context => (
-                  <div key={context.id} className="space-y-2">
-                    <h4 className="text-primary-400 font-medium">{context.name}</h4>
-                    <DndContext
-                      sensors={sensors}
-                      collisionDetection={closestCenter}
-                      onDragEnd={(event) => handleBookmarkDragEnd(event, context.id)}
-                    >
-                      <SortableContext
-                        items={context.categories.map(category => category.name)}
-                        strategy={verticalListSortingStrategy}
+                {config.contexts
+                  .filter(context => context.id === selectedContextId)
+                  .map(context => (
+                    <div key={context.id} className="space-y-2">
+                      <h4 className="text-primary-400 font-medium">{context.name}</h4>
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event) => handleBookmarkDragEnd(event, context.id)}
                       >
-                        <div className="grid gap-2">
-                          {context.categories.map(category => (
-                            <SortableItem key={category.name} id={category.name}>
-                              <div>
-                                <span className="text-secondary-200">{category.name}</span>
-                                <span className="text-secondary-400 text-sm ml-2">
-                                  ({category.links.length} links)
-                                </span>
-                              </div>
-                              <div className="flex space-x-2">
-                                <button
-                                  onClick={() => handleBookmarkEdit(category)}
-                                  className="p-1 rounded hover:bg-secondary-600"
-                                  title="Edit"
-                                >
-                                  <Icon name="Pencil" size={16} />
-                                </button>
-                                <button
-                                  onClick={() => handleBookmarkDelete(context, category.name)}
-                                  className="p-1 rounded hover:bg-secondary-600"
-                                  title="Delete"
-                                >
-                                  <Icon name="Trash2" size={16} />
-                                </button>
-                              </div>
-                            </SortableItem>
-                          ))}
-                        </div>
-                      </SortableContext>
-                    </DndContext>
-                  </div>
-                ))}
+                        <SortableContext
+                          items={context.categories.map(category => category.name)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="grid gap-2">
+                            {context.categories.map(category => (
+                              <SortableItem key={category.name} id={category.name}>
+                                <div>
+                                  <span className="text-secondary-200">{category.name}</span>
+                                  <span className="text-secondary-400 text-sm ml-2">
+                                    ({category.links.length} links)
+                                  </span>
+                                </div>
+                                <div className="flex space-x-2">
+                                  <button
+                                    onClick={() => handleBookmarkEdit(category)}
+                                    className="p-1 rounded hover:bg-secondary-600"
+                                    title="Edit"
+                                  >
+                                    <Icon name="Pencil" size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleBookmarkDelete(context, category.name)}
+                                    className="p-1 rounded hover:bg-secondary-600"
+                                    title="Delete"
+                                  >
+                                    <Icon name="Trash2" size={16} />
+                                  </button>
+                                </div>
+                              </SortableItem>
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
+                    </div>
+                  ))}
               </div>
             )}
 
@@ -818,6 +909,10 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
 
             {activeTab === 'widgets' && (
               <WidgetsSettings />
+            )}
+
+            {activeTab === 'about' && (
+              <AboutSettings />
             )}
 
             {activeTab === 'backup' && (
@@ -866,7 +961,7 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
       {editingBookmark && (
         <BookmarkEditModal
           category={editingBookmark}
-          contextId={config.contexts.find(c => c.categories.some(cat => cat.name === editingBookmark.name))?.id || config.activeContext}
+          contextId={selectedContextId}
           onSave={handleBookmarkSave}
           onCancel={() => setEditingBookmark(null)}
           className="z-[2000]"

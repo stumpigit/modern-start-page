@@ -58,6 +58,7 @@ export const defaultConfig: UserConfig = {
   gridColumns: 3,
   displayMode: 'list',
   showCategoryBorders: true,
+  showSearchBar: true,
   widgets: {
     weather: {
       enabled: true,
