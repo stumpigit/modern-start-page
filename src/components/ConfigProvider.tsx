@@ -10,17 +10,20 @@ import { Clock } from './Clock';
 
 interface ConfigProviderProps {
   initialConfig: UserConfig;
+  user: string;
 }
 
 export const ConfigContext = createContext<{
   config: UserConfig;
+  user: string;
   onConfigChange: (newConfig: UserConfig) => Promise<void>;
 }>({
   config: {} as UserConfig,
+  user: "" as string,
   onConfigChange: async () => {},
 });
 
-export default function ConfigProvider({ initialConfig }: ConfigProviderProps) {
+export default function ConfigProvider({ initialConfig, user }: ConfigProviderProps) {
   const [config, setConfig] = useState<UserConfig>(initialConfig);
 
   useEffect(() => {
@@ -38,6 +41,7 @@ export default function ConfigProvider({ initialConfig }: ConfigProviderProps) {
 
   const handleConfigChange = async (newConfig: UserConfig) => {
     console.log('ConfigProvider: Starting config change with:', newConfig);
+    newConfig.user = user;
     try {
       const response = await fetch('/api/config', {
         method: 'POST',
@@ -62,7 +66,7 @@ export default function ConfigProvider({ initialConfig }: ConfigProviderProps) {
   };
 
   return (
-    <ConfigContext.Provider value={{ config, onConfigChange: handleConfigChange }}>
+    <ConfigContext.Provider value={{ config, user, onConfigChange: handleConfigChange }}>
       <Navigation config={config} onConfigChange={handleConfigChange} />
       <div className="mt-8">
         <DateGreeting />

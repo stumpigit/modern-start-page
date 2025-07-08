@@ -68,5 +68,6 @@ export const defaultConfig: UserConfig = {
       enabled: false,
       showSeconds: true,
     },
-  }
+  },
+  user: "",
 };

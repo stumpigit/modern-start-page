@@ -36,6 +36,7 @@ export interface UserConfig {
   showCategoryBorders: boolean;
   showSearchBar: boolean;
   widgets: WidgetSettings;
+  user: string;
 }
 
 declare global {

@@ -1,0 +1,25 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import ConfigProvider from '../../components/ConfigProvider';
+import type { UserConfig } from '../../config/types';
+import { initializeConfig } from '../../config/store';
+
+// Initialize config store and get the current config
+const { user } = Astro.params;
+const configStore = await initializeConfig(user);
+const initialConfig = await configStore.getConfig();
+---
+
+<Layout title="Modern Start Page">
+  <main class="space-y-12">
+    <!-- Header -->
+    <header class="mb-12 -ml-4 flex items-center gap-2">
+      <img src="/logos/logo-dark/android-chrome-192x192.png" alt="Modern Start Page Logo" class="w-12 h-12" />
+      <h1 class="text-xl font-medium bg-gradient-to-r from-primary-300 to-primary-500 bg-clip-text text-transparent">
+        Modern Start Page
+      </h1>
+    </header>
+
+    <ConfigProvider client:only="react" initialConfig={initialConfig} user={user} />
+  </main>
+</Layout>

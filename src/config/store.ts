@@ -7,9 +7,10 @@ class ConfigStore {
   private config: UserConfig;
   private configPath: string;
 
-  constructor() {
+  constructor(user?: string) {
     this.config = defaultConfig;
-    this.configPath = process.env.CONFIG_PATH || './data/config.json';
+    if (user) this.configPath = process.env.CONFIG_PATH + '/config_'+user+'.json' || './data/config'+user+'.json';
+    else this.configPath = process.env.CONFIG_PATH + '/config.json' || './data/config.json';
   }
 
   async getConfig(): Promise<UserConfig> {
@@ -47,8 +48,8 @@ class ConfigStore {
   }
 }
 
-export const initializeConfig = async () => {
-  const store = new ConfigStore();
+export const initializeConfig = async (user?: string) => {
+  const store = new ConfigStore(user);
   await store.initialize();
   return store;
 }; 
