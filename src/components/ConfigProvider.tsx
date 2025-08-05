@@ -68,19 +68,19 @@ export default function ConfigProvider({ initialConfig, user }: ConfigProviderPr
   return (
     <ConfigContext.Provider value={{ config, user, onConfigChange: handleConfigChange }}>
       <Navigation config={config} onConfigChange={handleConfigChange} />
-      <div className="mt-8">
+      <div className="mt-4 sm:mt-6 lg:mt-8">
         <DateGreeting />
-        <div className="mt-4">
+        <div className="mt-2 sm:mt-4">
           <SystemStatus />
         </div>
       </div>
       {config.showSearchBar && (
-        <div className="mt-8">
+        <div className="mt-4 sm:mt-6 lg:mt-8">
           <Search />
         </div>
       )}
-      <div className="mt-8">
-        <div className="grid grid-cols-3 gap-4">
+      <div className="mt-4 sm:mt-6 lg:mt-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {config.widgets?.weather?.enabled && (
             <div>
               <Weather />
@@ -96,7 +96,7 @@ export default function ConfigProvider({ initialConfig, user }: ConfigProviderPr
           </div>
         </div>
       </div>
-      <div className="mt-12">
+      <div className="mt-8 sm:mt-10 lg:mt-12">
         <ContextManager initialConfig={config} />
       </div>
     </ConfigContext.Provider>
