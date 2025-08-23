@@ -1,5 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { ConfigContext } from './ConfigProvider';
+import type { UserConfig } from '../config/types';
 import { Icon } from './Icon';
 
 type CalendarEvent = {
@@ -83,8 +84,9 @@ function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-export const CalendarWidget = () => {
-  const { config } = useContext(ConfigContext);
+export const CalendarWidget = ({ config: configProp }: { config?: UserConfig }) => {
+  const ctx = useContext(ConfigContext);
+  const config = configProp ?? ctx.config;
   const widgets = config.widgets || ({} as any);
   const calendarCfg = widgets.calendar || { enabled: false, icsUrl: '' };
 
@@ -95,7 +97,12 @@ export const CalendarWidget = () => {
 
   useEffect(() => {
     const load = async () => {
-      if (!calendarCfg.enabled || !calendarCfg.icsUrl) return;
+      if (!calendarCfg.enabled) return;
+      if (!calendarCfg.icsUrl) {
+        setEvents([]);
+        setError('No calendar URL set');
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
@@ -233,4 +240,3 @@ export const CalendarWidget = () => {
 };
 
 export default CalendarWidget;
-

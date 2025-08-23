@@ -100,6 +100,11 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
 
   if (!isOpen) return null;
 
+  const handleLogout = () => {
+    const redirectTo = window.location.pathname + window.location.search;
+    window.location.href = `/api/logout?redirectTo=${encodeURIComponent(redirectTo)}`;
+  };
+
   const handleConfigUpdate = async (newConfig: UserConfig) => {
     console.log('SettingsModal: Starting config update with:', newConfig);
     try {
@@ -910,12 +915,22 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-secondary-700">
             <h2 className="text-xl font-semibold text-secondary-200">Settings</h2>
-            <button
-              onClick={onClose}
-              className="p-1 rounded hover:bg-secondary-700 transition-colors"
-            >
-              ✕
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleLogout}
+                className="px-3 py-1.5 rounded border border-secondary-700 text-secondary-200 hover:bg-secondary-800 hover:border-secondary-600 text-sm"
+                title="Logout"
+              >
+                Logout
+              </button>
+              <button
+                onClick={onClose}
+                className="p-1 rounded hover:bg-secondary-700 transition-colors"
+                aria-label="Close settings"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {/* Tabs */}

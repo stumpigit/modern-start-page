@@ -9,8 +9,12 @@ class ConfigStore {
 
   constructor(user?: string) {
     this.config = defaultConfig;
-    if (user) this.configPath = process.env.CONFIG_PATH + '/config_'+user+'.json' || './data/config'+user+'.json';
-    else this.configPath = process.env.CONFIG_PATH + '/config.json' || './data/config.json';
+    const baseDir = process.env.CONFIG_PATH && process.env.CONFIG_PATH.trim().length > 0
+      ? process.env.CONFIG_PATH
+      : path.resolve(process.cwd(), 'data');
+    this.configPath = user
+      ? path.join(baseDir, `config_${user}.json`)
+      : path.join(baseDir, 'config.json');
   }
 
   async getConfig(): Promise<UserConfig> {

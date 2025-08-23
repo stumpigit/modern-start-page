@@ -12,7 +12,7 @@ import CalendarWidget from './Calendar';
 
 interface ConfigProviderProps {
   initialConfig: UserConfig;
-  user: string;
+  user?: string;
 }
 
 export const ConfigContext = createContext<{
@@ -25,7 +25,7 @@ export const ConfigContext = createContext<{
   onConfigChange: async () => {},
 });
 
-export default function ConfigProvider({ initialConfig, user }: ConfigProviderProps) {
+export default function ConfigProvider({ initialConfig, user = '' }: ConfigProviderProps) {
   const [config, setConfig] = useState<UserConfig>(initialConfig);
 
   useEffect(() => {
@@ -98,13 +98,12 @@ export default function ConfigProvider({ initialConfig, user }: ConfigProviderPr
       <div className="mt-8 sm:mt-10 lg:mt-12">
         <ContextManager initialConfig={config} />
       </div>
-      {config.widgets?.calendar?.enabled && (
-        <div className="mt-6 sm:mt-8 lg:mt-10 flex justify-center w-full">
-          <div className="max-w-7xl w-full px-2 sm:px-4">
-            <CalendarWidget />
-          </div>
+      {/* Mount calendar widget regardless to ensure effects run; component self-hides when disabled */}
+      <div className="mt-6 sm:mt-8 lg:mt-10 flex justify-center w-full">
+        <div className="max-w-7xl w-full px-2 sm:px-4">
+          <CalendarWidget config={config} />
         </div>
-      )}
+      </div>
       {config.widgets?.iframe?.enabled && (
         <div className="mt-6 sm:mt-8 lg:mt-10 flex justify-center w-full">
           <div className="max-w-7xl w-full px-2 sm:px-4">
