@@ -103,6 +103,14 @@ export const defaultConfig: UserConfig = {
     "clock": {
       "enabled": false,
       "showSeconds": false
+    },
+    "iframe": {
+      "enabled": false,
+      "url": ""
+    },
+    "calendar": {
+      "enabled": false,
+      "icsUrl": ""
     }
   }
 };

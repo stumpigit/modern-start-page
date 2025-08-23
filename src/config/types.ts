@@ -25,6 +25,14 @@ export interface WidgetSettings {
     enabled: boolean;
     showSeconds: boolean;
   };
+  iframe: {
+    enabled: boolean;
+    url: string;
+  };
+  calendar: {
+    enabled: boolean;
+    icsUrl: string;
+  };
 }
 
 export interface UserConfig {

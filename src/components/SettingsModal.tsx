@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { UserConfig, Context, Category, WidgetSettings } from '../config/types';
 import { themes, type Theme } from '../data/themes';
 import ContextEditModal from './ContextEditModal';
@@ -471,14 +471,22 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
     // Ensure widgets property exists
     const widgets = config.widgets || {
       weather: {
-        enabled: true,
+        enabled: false,
         useCelsius: false
       },
       clock: {
-        enabled: true,
-        showSeconds: true
+        enabled: false,
+        showSeconds: false
+      },
+      iframe: {
+        enabled: false,
+        url: ''
+      },
+      calendar: {
+        enabled: false,
+        icsUrl: ''
       }
-    };
+    } as WidgetSettings;
 
     const newConfig = {
       ...config,
@@ -503,14 +511,22 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
     // Ensure widgets property exists
     const widgets = config.widgets || {
       weather: {
-        enabled: true,
+        enabled: false,
         useCelsius: false
       },
       clock: {
-        enabled: true,
-        showSeconds: true
+        enabled: false,
+        showSeconds: false
+      },
+      iframe: {
+        enabled: false,
+        url: ''
+      },
+      calendar: {
+        enabled: false,
+        icsUrl: ''
       }
-    };
+    } as WidgetSettings;
 
     const newConfig = {
       ...config,
@@ -539,14 +555,22 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
     // Ensure widgets property exists
     const widgets = config.widgets || {
       weather: {
-        enabled: true,
+        enabled: false,
         useCelsius: false
       },
       clock: {
-        enabled: true,
-        showSeconds: true
+        enabled: false,
+        showSeconds: false
+      },
+      iframe: {
+        enabled: false,
+        url: ''
+      },
+      calendar: {
+        enabled: false,
+        icsUrl: ''
       }
-    };
+    } as WidgetSettings;
 
     const newConfig = {
       ...config,
@@ -567,18 +591,95 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
     }
   };
 
+  const handleIframeUrlChange = async (url: string) => {
+    const widgets = config.widgets || {
+      weather: { enabled: false, useCelsius: false },
+      clock: { enabled: false, showSeconds: false },
+      iframe: { enabled: false, url: '' },
+      calendar: { enabled: false, icsUrl: '' },
+    } as WidgetSettings;
+
+    const newConfig = {
+      ...config,
+      widgets: {
+        ...widgets,
+        iframe: {
+          ...widgets.iframe,
+          url
+        }
+      }
+    };
+
+    try {
+      await handleConfigUpdate(newConfig);
+    } catch (error) {
+      console.error('Error updating iframe URL:', error);
+      setToast({ message: 'Failed to update iframe URL', type: 'error' });
+    }
+  };
+
+  const handleCalendarUrlChange = async (icsUrl: string) => {
+    const widgets = config.widgets || {
+      weather: { enabled: false, useCelsius: false },
+      clock: { enabled: false, showSeconds: false },
+      iframe: { enabled: false, url: '' },
+      calendar: { enabled: false, icsUrl: '' },
+    } as WidgetSettings;
+
+    const newConfig = {
+      ...config,
+      widgets: {
+        ...widgets,
+        calendar: {
+          ...widgets.calendar,
+          icsUrl,
+        },
+      },
+    };
+
+    try {
+      await handleConfigUpdate(newConfig);
+    } catch (error) {
+      console.error('Error updating calendar URL:', error);
+      setToast({ message: 'Failed to update calendar URL', type: 'error' });
+    }
+  };
+
   const WidgetsSettings = () => {
-    // Ensure widgets property exists with both weather and clock settings
+    const [calendarUrlInput, setCalendarUrlInput] = useState('');
+    // Ensure widgets property exists with all widget settings
     const widgets = config.widgets || {
       weather: {
-        enabled: true,
+        enabled: false,
         useCelsius: false
       },
       clock: {
-        enabled: true,
-        showSeconds: true
+        enabled: false,
+        showSeconds: false
+      },
+      iframe: {
+        enabled: false,
+        url: ''
+      },
+      calendar: {
+        enabled: false,
+        icsUrl: ''
       }
+    } as WidgetSettings;
+
+    const iframe = widgets.iframe || {
+      enabled: false,
+      url: ''
     };
+
+    const calendar = widgets.calendar || {
+      enabled: false,
+      icsUrl: ''
+    };
+
+    useEffect(() => {
+      setCalendarUrlInput(calendar.icsUrl || '');
+    }, [calendar.icsUrl]);
 
     // Ensure both weather and clock properties exist
     const weather = widgets.weather || {
@@ -677,6 +778,81 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
                 <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
               </label>
             </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-medium">Calendar Widget</h3>
+            <p className="text-sm text-gray-400">Import an ICS file and view monthly</p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              className="sr-only peer"
+              checked={calendar.enabled}
+              onChange={(e) => handleWidgetToggle('calendar', e.target.checked)}
+            />
+            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
+          </label>
+        </div>
+
+        {calendar.enabled && (
+          <div className="pl-4 border-l-2 border-gray-700 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1">
+                <h4 className="text-sm font-medium">ICS URL</h4>
+                <p className="text-xs text-gray-400">Use a public URL or place a file in <code className="bg-secondary-700 px-1 rounded">/public</code> and reference it like <code className="bg-secondary-700 px-1 rounded">/calendar.ics</code>. Some remote URLs may require CORS.</p>
+              </div>
+            </div>
+            <input
+              type="url"
+              className="w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              placeholder="/calendar.ics or https://example.com/feed.ics"
+              value={calendarUrlInput}
+              onChange={(e) => setCalendarUrlInput(e.target.value)}
+              onBlur={() => handleCalendarUrlChange(calendarUrlInput)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleCalendarUrlChange(calendarUrlInput);
+                }
+              }}
+            />
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-medium">Iframe Widget</h3>
+            <p className="text-sm text-gray-400">Embed a web page via URL</p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              className="sr-only peer"
+              checked={iframe.enabled}
+              onChange={(e) => handleWidgetToggle('iframe', e.target.checked)}
+            />
+            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
+          </label>
+        </div>
+
+        {iframe.enabled && (
+          <div className="pl-4 border-l-2 border-gray-700 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1">
+                <h4 className="text-sm font-medium">URL</h4>
+                <p className="text-xs text-gray-400">Enter a valid http/https URL to embed</p>
+              </div>
+            </div>
+            <input
+              type="url"
+              className="w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              placeholder="https://example.com"
+              value={iframe.url}
+              onChange={(e) => handleIframeUrlChange(e.target.value)}
+            />
           </div>
         )}
       </div>

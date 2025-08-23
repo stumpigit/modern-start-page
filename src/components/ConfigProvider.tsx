@@ -7,6 +7,8 @@ import DateGreeting from './DateGreeting';
 import SystemStatus from './SystemStatus';
 import { Weather } from './Weather';
 import { Clock } from './Clock';
+import IframeWidget from './Iframe';
+import CalendarWidget from './Calendar';
 
 interface ConfigProviderProps {
   initialConfig: UserConfig;
@@ -91,14 +93,25 @@ export default function ConfigProvider({ initialConfig, user }: ConfigProviderPr
               <Clock />
             </div>
           )}
-          <div>
-            {/* Placeholder for future widget */}
-          </div>
         </div>
       </div>
       <div className="mt-8 sm:mt-10 lg:mt-12">
         <ContextManager initialConfig={config} />
       </div>
+      {config.widgets?.calendar?.enabled && (
+        <div className="mt-6 sm:mt-8 lg:mt-10 flex justify-center w-full">
+          <div className="max-w-7xl w-full px-2 sm:px-4">
+            <CalendarWidget />
+          </div>
+        </div>
+      )}
+      {config.widgets?.iframe?.enabled && (
+        <div className="mt-6 sm:mt-8 lg:mt-10 flex justify-center w-full">
+          <div className="max-w-7xl w-full px-2 sm:px-4">
+            <IframeWidget />
+          </div>
+        </div>
+      )}
     </ConfigContext.Provider>
   );
 } 
