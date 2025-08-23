@@ -32,6 +32,13 @@ export interface WidgetSettings {
   calendar: {
     enabled: boolean;
     icsUrl: string;
+    source?: 'ics' | 'caldav';
+    caldav?: {
+      url: string;
+      username: string;
+      password: string;
+      useProxy?: boolean;
+    };
   };
 }
 

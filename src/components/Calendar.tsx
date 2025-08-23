@@ -17,8 +17,8 @@ function parseIcs(content: string): CalendarEvent[] {
     .replace(/\r\n/g, '\n')
     .split('\n')
     .reduce<string[]>((acc, line) => {
-      if (line.startsWith(' ') && acc.length) {
-        acc[acc.length - 1] += line.slice(1);
+      if ((/^\s/.test(line)) && acc.length) {
+        acc[acc.length - 1] += line.replace(/^\s/, '');
       } else {
         acc.push(line);
       }
@@ -88,29 +88,133 @@ export const CalendarWidget = ({ config: configProp }: { config?: UserConfig }) 
   const ctx = useContext(ConfigContext);
   const config = configProp ?? ctx.config;
   const widgets = config.widgets || ({} as any);
-  const calendarCfg = widgets.calendar || { enabled: false, icsUrl: '' };
+  const calendarCfg = widgets.calendar || { enabled: false, icsUrl: '', source: 'ics' as const };
 
   const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()));
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Helper to format a date to CalDAV time-range format (UTC)
+  const toCaldavTime = (d: Date) => {
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mm = String(d.getUTCMinutes()).padStart(2, '0');
+    const ss = String(d.getUTCSeconds()).padStart(2, '0');
+    return `${y}${m}${day}T${hh}${mm}${ss}Z`;
+  };
+
   useEffect(() => {
     const load = async () => {
       if (!calendarCfg.enabled) return;
-      if (!calendarCfg.icsUrl) {
-        setEvents([]);
-        setError('No calendar URL set');
-        return;
-      }
       setLoading(true);
       setError(null);
+
       try {
-        const res = await fetch(calendarCfg.icsUrl);
-        if (!res.ok) throw new Error(`Failed to fetch ICS (${res.status})`);
-        const text = await res.text();
-        const parsed = parseIcs(text);
-        setEvents(parsed);
+        if ((calendarCfg.source || 'ics') === 'ics') {
+          if (!calendarCfg.icsUrl) {
+            setEvents([]);
+            setError('No calendar URL set');
+            return;
+          }
+          const res = await fetch(calendarCfg.icsUrl);
+          if (!res.ok) throw new Error(`Failed to fetch ICS (${res.status})`);
+          const text = await res.text();
+          const parsed = parseIcs(text);
+          setEvents(parsed);
+          return;
+        }
+
+        // CalDAV source
+        const cal = (calendarCfg.caldav as any) || { url: '', username: '', password: '', useProxy: false };
+        if (!cal.url || !cal.username) {
+          setEvents([]);
+          setError('Missing CalDAV URL or username');
+          return;
+        }
+
+        // Query a wider range (current month ± 1 month) to catch recurrences
+        const monthStart = startOfMonth(currentMonth);
+        const prevMonthStart = startOfMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+        const nextMonthEnd = endOfMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+        const start = new Date(Date.UTC(prevMonthStart.getFullYear(), prevMonthStart.getMonth(), prevMonthStart.getDate(), 0, 0, 0));
+        const end = new Date(Date.UTC(nextMonthEnd.getFullYear(), nextMonthEnd.getMonth(), nextMonthEnd.getDate(), 23, 59, 59));
+
+        const body = `<?xml version="1.0" encoding="UTF-8"?>\n` +
+          `<c:calendar-query xmlns:c="urn:ietf:params:xml:ns:caldav" xmlns:d="DAV:">` +
+          `<d:prop><d:getetag/><c:calendar-data/></d:prop>` +
+          `<c:filter><c:comp-filter name="VCALENDAR"><c:comp-filter name="VEVENT">` +
+          `<c:time-range start="${toCaldavTime(start)}" end="${toCaldavTime(end)}"/>` +
+          `</c:comp-filter></c:comp-filter></c:filter>` +
+          `</c:calendar-query>`;
+        if (cal.useProxy) {
+          const res = await fetch('/api/caldav', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'report',
+              url: cal.url,
+              username: cal.username,
+              password: cal.password,
+              start: toCaldavTime(start),
+              end: toCaldavTime(end),
+            }),
+          });
+          let data: any = null;
+          try { data = await res.json(); } catch {}
+          if (!res.ok) {
+            const reason = data?.error || `CalDAV proxy failed (${res.status})`;
+            const auth = data?.details?.wwwAuthenticate ? ` Auth: ${data.details.wwwAuthenticate}` : '';
+            const hint = data?.details?.hint ? ` Hint: ${data.details.hint}` : '';
+            throw new Error(`${reason}${auth}${hint}`);
+          }
+          if (!data) throw new Error('Empty response from CalDAV proxy');
+          const icsBlocks = (data?.ics as string[] | undefined) || [];
+          const allEvents = icsBlocks.flatMap((s) => parseIcs(s || '')) || [];
+          setEvents(allEvents);
+        } else {
+          const auth = typeof btoa !== 'undefined' ? 'Basic ' + btoa(`${cal.username}:${cal.password || ''}`) : '';
+          const res = await fetch(cal.url, {
+            method: 'REPORT',
+            headers: {
+              'Content-Type': 'application/xml; charset=utf-8',
+              'Depth': '1',
+              ...(auth ? { 'Authorization': auth } : {}),
+            },
+            body,
+          } as RequestInit);
+
+          if (!res.ok) {
+            throw new Error(`CalDAV query failed (${res.status})`);
+          }
+
+          const xmlText = await res.text();
+          // Parse XML and extract all calendar-data blocks
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(xmlText, 'application/xml');
+          // Handle XML parser errors
+          const parserErr = doc.getElementsByTagName('parsererror');
+          if (parserErr && parserErr.length) {
+            throw new Error('Failed to parse CalDAV response');
+          }
+          const icsStrings: string[] = [];
+          // Try namespace-aware first
+          const calDataNs = doc.getElementsByTagNameNS('urn:ietf:params:xml:ns:caldav', 'calendar-data');
+          for (let i = 0; i < calDataNs.length; i++) {
+            icsStrings.push(calDataNs[i].textContent || '');
+          }
+          if (icsStrings.length === 0) {
+            // Fallback by tag name (some servers may not include prefixes as expected)
+            const calData = doc.getElementsByTagName('calendar-data');
+            for (let i = 0; i < calData.length; i++) {
+              icsStrings.push(calData[i].textContent || '');
+            }
+          }
+          const allEvents = icsStrings.flatMap((s) => parseIcs(s || ''));
+          setEvents(allEvents);
+        }
       } catch (e: any) {
         setError(e?.message || 'Failed to load calendar');
       } finally {
@@ -118,7 +222,16 @@ export const CalendarWidget = ({ config: configProp }: { config?: UserConfig }) 
       }
     };
     load();
-  }, [calendarCfg.enabled, calendarCfg.icsUrl]);
+  }, [
+    calendarCfg.enabled,
+    calendarCfg.source,
+    calendarCfg.icsUrl,
+    calendarCfg.caldav?.url,
+    calendarCfg.caldav?.username,
+    calendarCfg.caldav?.password,
+    (calendarCfg.caldav as any)?.useProxy,
+    currentMonth,
+  ]);
 
   if (!calendarCfg.enabled) return null;
 
@@ -156,6 +269,18 @@ export const CalendarWidget = ({ config: configProp }: { config?: UserConfig }) 
     }
     return map;
   }, [events]);
+
+  // Simple check whether any events fall within the current visible month
+  const hasMonthEvents = useMemo(() => {
+    const month = currentMonth.getMonth();
+    const year = currentMonth.getFullYear();
+    for (const [key, list] of eventsByDay) {
+      if (!list.length) continue;
+      const d = new Date(key);
+      if (d.getMonth() === month && d.getFullYear() === year) return true;
+    }
+    return false;
+  }, [eventsByDay, currentMonth]);
 
   const monthLabel = currentMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const weekdayLabels = Array.from({ length: 7 }).map((_, i) =>
@@ -198,6 +323,9 @@ export const CalendarWidget = ({ config: configProp }: { config?: UserConfig }) 
       )}
       {error && (
         <div className="p-4 text-sm text-red-400">{error}</div>
+      )}
+      {!loading && !error && !hasMonthEvents && (
+        <div className="p-4 text-sm text-secondary-400">No events this month.</div>
       )}
 
       <div className="p-2 sm:p-3">

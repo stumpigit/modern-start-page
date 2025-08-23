@@ -243,6 +243,29 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
       newConfig.contexts[contextIndex] = context;
       
       try {
+        // Use server-side discovery when proxy is enabled
+        {
+          const cal0 = (calendar as any).caldav || { url: '', username: '', password: '', useProxy: false };
+          if (cal0.useProxy) {
+            const baseUrl0: string = cal0.url || '';
+            if (!baseUrl0) {
+              setDiscoverError('Enter a CalDAV base URL first');
+              return;
+            }
+            const res0 = await fetch('/api/caldav', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'discover', url: baseUrl0, username: cal0.username, password: cal0.password }),
+            });
+            if (!res0.ok) throw new Error(`Discovery failed (${res0.status})`);
+            const data0 = await res0.json();
+            const items0 = (data0?.calendars as Array<{ href: string; name: string }>) || [];
+            if (items0.length === 0) setDiscoverError('No calendar collections found');
+            setDiscoveredCalendars(items0);
+            if (items0.length) setSelectedDiscovered(items0[0].href);
+            return;
+          }
+        }
         console.log('SettingsModal: Attempting to save config:', newConfig);
         await handleConfigUpdate(newConfig);
         setToast({ message: 'Bookmark updated successfully', type: 'success' });
@@ -489,7 +512,9 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
       },
       calendar: {
         enabled: false,
-        icsUrl: ''
+        icsUrl: '',
+        source: 'ics',
+        caldav: { url: '', username: '', password: '' },
       }
     } as WidgetSettings;
 
@@ -529,7 +554,9 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
       },
       calendar: {
         enabled: false,
-        icsUrl: ''
+        icsUrl: '',
+        source: 'ics',
+        caldav: { url: '', username: '', password: '' },
       }
     } as WidgetSettings;
 
@@ -573,7 +600,9 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
       },
       calendar: {
         enabled: false,
-        icsUrl: ''
+        icsUrl: '',
+        source: 'ics',
+        caldav: { url: '', username: '', password: '' },
       }
     } as WidgetSettings;
 
@@ -601,7 +630,7 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
       weather: { enabled: false, useCelsius: false },
       clock: { enabled: false, showSeconds: false },
       iframe: { enabled: false, url: '' },
-      calendar: { enabled: false, icsUrl: '' },
+      calendar: { enabled: false, icsUrl: '', source: 'ics', caldav: { url: '', username: '', password: '' } },
     } as WidgetSettings;
 
     const newConfig = {
@@ -623,12 +652,71 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
     }
   };
 
+  const handleCalendarSourceChange = async (source: 'ics' | 'caldav') => {
+    const widgets = (config.widgets || {
+      weather: { enabled: false, useCelsius: false },
+      clock: { enabled: false, showSeconds: false },
+      iframe: { enabled: false, url: '' },
+      calendar: { enabled: false, icsUrl: '', source: 'ics', caldav: { url: '', username: '', password: '' } },
+    }) as WidgetSettings;
+
+    const newConfig = {
+      ...config,
+      widgets: {
+        ...widgets,
+        calendar: {
+          enabled: widgets.calendar?.enabled ?? false,
+          icsUrl: widgets.calendar?.icsUrl || '',
+          source,
+          caldav: widgets.calendar?.caldav || { url: '', username: '', password: '' },
+        },
+      },
+    };
+
+    try {
+      await handleConfigUpdate(newConfig);
+    } catch (error) {
+      console.error('Error updating calendar source:', error);
+      setToast({ message: 'Failed to update calendar source', type: 'error' });
+    }
+  };
+
+  const handleCalDavChange = async (field: 'url' | 'username' | 'password' | 'useProxy', value: string | boolean) => {
+    const widgets = (config.widgets || {
+      weather: { enabled: false, useCelsius: false },
+      clock: { enabled: false, showSeconds: false },
+      iframe: { enabled: false, url: '' },
+      calendar: { enabled: false, icsUrl: '', source: 'ics', caldav: { url: '', username: '', password: '' } },
+    }) as WidgetSettings;
+
+    const currentCal = widgets.calendar?.caldav || { url: '', username: '', password: '', useProxy: false };
+    const newConfig = {
+      ...config,
+      widgets: {
+        ...widgets,
+        calendar: {
+          enabled: widgets.calendar?.enabled ?? false,
+          icsUrl: widgets.calendar?.icsUrl || '',
+          source: (widgets.calendar as any)?.source || 'ics',
+          caldav: { ...currentCal, [field]: value as any },
+        },
+      },
+    };
+
+    try {
+      await handleConfigUpdate(newConfig);
+    } catch (error) {
+      console.error('Error updating CalDAV settings:', error);
+      setToast({ message: 'Failed to update CalDAV settings', type: 'error' });
+    }
+  };
+
   const handleCalendarUrlChange = async (icsUrl: string) => {
     const widgets = config.widgets || {
       weather: { enabled: false, useCelsius: false },
       clock: { enabled: false, showSeconds: false },
       iframe: { enabled: false, url: '' },
-      calendar: { enabled: false, icsUrl: '' },
+      calendar: { enabled: false, icsUrl: '', source: 'ics', caldav: { url: '', username: '', password: '' } },
     } as WidgetSettings;
 
     const newConfig = {
@@ -652,6 +740,12 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
 
   const WidgetsSettings = () => {
     const [calendarUrlInput, setCalendarUrlInput] = useState('');
+    const [discovering, setDiscovering] = useState(false);
+    const [discoverError, setDiscoverError] = useState<string | null>(null);
+    const [discoveredCalendars, setDiscoveredCalendars] = useState<Array<{ href: string; name: string }>>([]);
+    const [selectedDiscovered, setSelectedDiscovered] = useState<string>('');
+    const [testing, setTesting] = useState(false);
+    const [testMessage, setTestMessage] = useState<string | null>(null);
     // Ensure widgets property exists with all widget settings
     const widgets = config.widgets || {
       weather: {
@@ -668,7 +762,9 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
       },
       calendar: {
         enabled: false,
-        icsUrl: ''
+        icsUrl: '',
+        source: 'ics',
+        caldav: { url: '', username: '', password: '' },
       }
     } as WidgetSettings;
 
@@ -679,12 +775,189 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
 
     const calendar = widgets.calendar || {
       enabled: false,
-      icsUrl: ''
+      icsUrl: '',
+      source: 'ics' as const,
+      caldav: { url: '', username: '', password: '' },
     };
 
     useEffect(() => {
       setCalendarUrlInput(calendar.icsUrl || '');
     }, [calendar.icsUrl]);
+
+    const discoverCalendars = async () => {
+      setDiscovering(true);
+      setDiscoverError(null);
+      setDiscoveredCalendars([]);
+      setSelectedDiscovered('');
+      try {
+        const cal = (calendar as any).caldav || { url: '', username: '', password: '' };
+        const baseUrl: string = cal.url || '';
+        if (!baseUrl) {
+          setDiscoverError('Enter a CalDAV base URL first');
+          return;
+        }
+        const auth = typeof btoa !== 'undefined' && cal.username
+          ? 'Basic ' + btoa(`${cal.username}:${cal.password || ''}`)
+          : '';
+
+        const propfind = async (url: string, depth: '0' | '1') => {
+          const body = `<?xml version="1.0" encoding="UTF-8"?>\n` +
+            `<d:propfind xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\">` +
+            `<d:prop>` +
+            `<d:current-user-principal/>` +
+            `<c:calendar-home-set/>` +
+            `<d:displayname/>` +
+            `<d:resourcetype/>` +
+            `</d:prop>` +
+            `</d:propfind>`;
+          const res = await fetch(url, {
+            method: 'PROPFIND',
+            headers: {
+              'Content-Type': 'application/xml; charset=utf-8',
+              'Depth': depth,
+              ...(auth ? { 'Authorization': auth } : {}),
+            },
+            body,
+          } as RequestInit);
+          if (!res.ok) throw new Error(`PROPFIND ${depth} failed (${res.status})`);
+          const text = await res.text();
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(text, 'application/xml');
+          const parserErr = doc.getElementsByTagName('parsererror');
+          if (parserErr && parserErr.length) throw new Error('Failed to parse PROPFIND response');
+          return doc;
+        };
+
+        const getHref = (parent: Element | Document, local: string, ns?: string) => {
+          const els = ns
+            ? (parent as Document).getElementsByTagNameNS(ns, local)
+            : (parent as Document).getElementsByTagName(local);
+          if (els && els.length) {
+            const hrefs = (els[0] as Element).getElementsByTagNameNS('DAV:', 'href');
+            if (hrefs && hrefs.length) return hrefs[0].textContent || '';
+          }
+          return '';
+        };
+
+        // Step 1: Try to get calendar-home-set directly on given URL
+        const doc0 = await propfind(baseUrl, '0');
+        let home = getHref(doc0, 'calendar-home-set', 'urn:ietf:params:xml:ns:caldav');
+        if (!home) {
+          // Try via current-user-principal
+          const principalHref = getHref(doc0, 'current-user-principal', 'DAV:')
+            || getHref(doc0, 'current-user-principal');
+          if (!principalHref) {
+            home = baseUrl;
+          } else {
+            const principalUrl = new URL(principalHref, baseUrl).toString();
+            const docP = await propfind(principalUrl, '0');
+            home = getHref(docP, 'calendar-home-set', 'urn:ietf:params:xml:ns:caldav');
+            if (!home) home = principalUrl;
+          }
+        }
+
+        const homeUrl = new URL(home, baseUrl).toString();
+
+        // Step 2: Depth:1 list calendars in home
+        const doc1 = await propfind(homeUrl, '1');
+        const responses = doc1.getElementsByTagNameNS('DAV:', 'response');
+        const items: Array<{ href: string; name: string }> = [];
+        for (let i = 0; i < responses.length; i++) {
+          const resp = responses[i];
+          const hrefEl = resp.getElementsByTagNameNS('DAV:', 'href')[0];
+          if (!hrefEl) continue;
+          const href = new URL(hrefEl.textContent || '', homeUrl).toString();
+          const displaynameEl = resp.getElementsByTagNameNS('DAV:', 'displayname')[0];
+          const displayname = displaynameEl?.textContent || href;
+          // Check resourcetype contains caldav:calendar
+          let isCalendar = false;
+          const resType = resp.getElementsByTagNameNS('DAV:', 'resourcetype')[0];
+          if (resType) {
+            const calEls = resType.getElementsByTagNameNS('urn:ietf:params:xml:ns:caldav', 'calendar');
+            if (calEls && calEls.length) isCalendar = true;
+          }
+          if (isCalendar) items.push({ href, name: displayname });
+        }
+
+        if (items.length === 0) {
+          setDiscoverError('No calendar collections found');
+        }
+        setDiscoveredCalendars(items);
+        if (items.length) setSelectedDiscovered(items[0].href);
+      } catch (e: any) {
+        setDiscoverError(e?.message || 'Discovery failed');
+      } finally {
+        setDiscovering(false);
+      }
+    };
+
+    const applyDiscovered = async () => {
+      if (!selectedDiscovered) return;
+      await handleCalDavChange('url', selectedDiscovered);
+    };
+
+    const testCalDavConnection = async () => {
+      setTesting(true);
+      setTestMessage(null);
+      try {
+        const cal = (calendar as any).caldav || { url: '', username: '', password: '', useProxy: false };
+        const baseUrl: string = cal.url || '';
+        if (!baseUrl) {
+          setTestMessage('Please enter a CalDAV URL first');
+          return;
+        }
+        if (cal.useProxy) {
+          const res = await fetch('/api/caldav', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'discover', url: baseUrl, username: cal.username, password: cal.password }),
+          });
+          let data: any = null;
+          try { data = await res.json(); } catch {}
+          if (!res.ok) {
+            const err = data?.error || `Failed (${res.status})`;
+            const auth = data?.details?.wwwAuthenticate ? ` Auth: ${data.details.wwwAuthenticate}` : '';
+            const hint = data?.details?.hint ? ` Hint: ${data.details.hint}` : '';
+            setTestMessage(`Connection failed: ${err}${auth}${hint}`);
+            return;
+          }
+          const count = Array.isArray(data?.calendars) ? data.calendars.length : 0;
+          const guess = data?.guessHome ? ` Base: ${data.guessHome}` : '';
+          setTestMessage(`Connection successful. Found ${count} calendar(s).${guess}`);
+        } else {
+          // Direct browser PROPFIND Depth:0
+          const auth = typeof btoa !== 'undefined' && (calendar as any).caldav?.username
+            ? 'Basic ' + btoa(`${(calendar as any).caldav?.username}:${(calendar as any).caldav?.password || ''}`)
+            : '';
+          const body = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n` +
+            `<d:propfind xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\">` +
+            `<d:prop>` +
+            `<d:current-user-principal/>` +
+            `<c:calendar-home-set/>` +
+            `</d:prop>` +
+            `</d:propfind>`;
+          const res = await fetch(baseUrl, {
+            method: 'PROPFIND',
+            headers: {
+              'Content-Type': 'application/xml; charset=utf-8',
+              'Depth': '0',
+              ...(auth ? { 'Authorization': auth } : {}),
+            },
+            body,
+          } as RequestInit);
+          if (!res.ok) {
+            const www = res.headers.get('www-authenticate') || '';
+            setTestMessage(`Connection failed: ${res.status}. Auth: ${www}`);
+            return;
+          }
+          setTestMessage('Connection successful.');
+        }
+      } catch (e: any) {
+        setTestMessage(e?.message || 'Test failed');
+      } finally {
+        setTesting(false);
+      }
+    };
 
     // Ensure both weather and clock properties exist
     const weather = widgets.weather || {
@@ -804,26 +1077,142 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
 
         {calendar.enabled && (
           <div className="pl-4 border-l-2 border-gray-700 space-y-3">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
               <div className="flex-1">
-                <h4 className="text-sm font-medium">ICS URL</h4>
-                <p className="text-xs text-gray-400">Use a public URL or place a file in <code className="bg-secondary-700 px-1 rounded">/public</code> and reference it like <code className="bg-secondary-700 px-1 rounded">/calendar.ics</code>. Some remote URLs may require CORS.</p>
+                <h4 className="text-sm font-medium">Source</h4>
+                <p className="text-xs text-gray-400">Choose between an ICS URL or CalDAV collection</p>
               </div>
+              <select
+                className="px-2 py-1 bg-secondary-800 border border-secondary-700 rounded text-secondary-100"
+                value={(calendar as any).source || 'ics'}
+                onChange={(e) => handleCalendarSourceChange(e.target.value as 'ics' | 'caldav')}
+              >
+                <option value="ics">ICS</option>
+                <option value="caldav">CalDAV</option>
+              </select>
             </div>
-            <input
-              type="url"
-              className="w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              placeholder="/calendar.ics or https://example.com/feed.ics"
-              value={calendarUrlInput}
-              onChange={(e) => setCalendarUrlInput(e.target.value)}
-              onBlur={() => handleCalendarUrlChange(calendarUrlInput)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleCalendarUrlChange(calendarUrlInput);
-                }
-              }}
-            />
+
+            {((calendar as any).source || 'ics') === 'ics' && (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex-1">
+                    <h4 className="text-sm font-medium">ICS URL</h4>
+                    <p className="text-xs text-gray-400">Use a public URL or place a file in <code className="bg-secondary-700 px-1 rounded">/public</code> and reference it like <code className="bg-secondary-700 px-1 rounded">/calendar.ics</code>. Some remote URLs may require CORS.</p>
+                  </div>
+                </div>
+                <input
+                  type="url"
+                  className="w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  placeholder="/calendar.ics or https://example.com/feed.ics"
+                  value={calendarUrlInput}
+                  onChange={(e) => setCalendarUrlInput(e.target.value)}
+                  onBlur={() => handleCalendarUrlChange(calendarUrlInput)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleCalendarUrlChange(calendarUrlInput);
+                    }
+                  }}
+                />
+              </>
+            )}
+
+            {((calendar as any).source || 'ics') === 'caldav' && (
+              <div className="space-y-3">
+                <div>
+                  <h4 className="text-sm font-medium">CalDAV URL</h4>
+                  <p className="text-xs text-gray-400">Enter the calendar collection URL (e.g., https://server/dav/calendars/user/calendar/). May require CORS/proxy.</p>
+                  <input
+                    type="url"
+                    className="mt-1 w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    placeholder="https://example.com/dav/calendars/user/calendar/"
+                    value={(calendar as any).caldav?.url || ''}
+                    onChange={(e) => handleCalDavChange('url', e.target.value)}
+                  />
+                  <div className="mt-2 flex items-center gap-3">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={Boolean((calendar as any).caldav?.useProxy)}
+                        onChange={(e) => handleCalDavChange('useProxy', e.target.checked)}
+                      />
+                      <span className="text-secondary-300">Use server proxy</span>
+                    </label>
+                    <button
+                      type="button"
+                      className="px-3 py-1 rounded bg-secondary-700 hover:bg-secondary-600 text-secondary-100 text-sm"
+                      onClick={testCalDavConnection}
+                      disabled={testing}
+                    >
+                      {testing ? 'Testing…' : 'Test connection'}
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="px-3 py-1 rounded bg-secondary-700 hover:bg-secondary-600 text-secondary-100 text-sm"
+                      onClick={discoverCalendars}
+                      disabled={discovering}
+                    >
+                      {discovering ? 'Discovering…' : 'Discover calendars'}
+                    </button>
+                    {discoverError && (
+                      <span className="text-xs text-red-400">{discoverError}</span>
+                    )}
+                    {testMessage && !discoverError && (
+                      <span className="text-xs text-secondary-300">{testMessage}</span>
+                    )}
+                  </div>
+                  {discoveredCalendars.length === 0 && (calendar as any).caldav?.useProxy && testMessage?.includes('Base:') && (
+                    <div className="text-xs text-secondary-300">
+                      If no calendars are listed, try opening the base in a browser and append your calendar name, e.g. <code className="bg-secondary-700 px-1 rounded">{testMessage.split('Base: ')[1]}</code><span className="opacity-70">&lt;your-calendar&gt;/</span>. Then paste that full URL above.
+                    </div>
+                  )}
+                  {discoveredCalendars.length > 0 && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <select
+                        className="flex-1 px-2 py-1 bg-secondary-800 border border-secondary-700 rounded text-secondary-100"
+                        value={selectedDiscovered}
+                        onChange={(e) => setSelectedDiscovered(e.target.value)}
+                      >
+                        {discoveredCalendars.map((c) => (
+                          <option key={c.href} value={c.href}>{c.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="px-3 py-1 rounded bg-primary-600 hover:bg-primary-500 text-white text-sm"
+                        onClick={applyDiscovered}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <h4 className="text-sm font-medium">Username</h4>
+                    <input
+                      type="text"
+                      className="mt-1 w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      placeholder="username"
+                      value={(calendar as any).caldav?.username || ''}
+                      onChange={(e) => handleCalDavChange('username', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium">Password</h4>
+                    <input
+                      type="password"
+                      className="mt-1 w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      placeholder="password"
+                      value={(calendar as any).caldav?.password || ''}
+                      onChange={(e) => handleCalDavChange('password', e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

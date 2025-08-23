@@ -110,7 +110,14 @@ export const defaultConfig: UserConfig = {
     },
     "calendar": {
       "enabled": false,
-      "icsUrl": ""
+      "icsUrl": "",
+      "source": "ics",
+      "caldav": {
+        "url": "",
+        "username": "",
+        "password": "",
+        "useProxy": false
+      }
     }
   }
 };
