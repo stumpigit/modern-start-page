@@ -8,6 +8,7 @@ import GridLayoutSelector from './GridLayoutSelector';
 import ConfirmDialog from './ConfirmDialog';
 import Toast from './Toast';
 import { Icon } from './Icon';
+import { plugins } from '../plugins/registry';
 import {
   DndContext,
   closestCenter,
@@ -40,7 +41,7 @@ interface SettingsModalProps {
   onConfigChange: (newConfig: UserConfig) => Promise<void>;
 }
 
-type Tab = 'contexts' | 'bookmarks' | 'appearance' | 'backup' | 'widgets' | 'about';
+type Tab = 'contexts' | 'bookmarks' | 'appearance' | 'plugins' | 'backup' | 'widgets' | 'about';
 
 // Add this new component for sortable items
 function SortableItem({ id, children }: { id: string; children: React.ReactNode }) {
@@ -1059,196 +1060,37 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
           </div>
         )}
 
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-medium">Calendar Widget</h3>
-            <p className="text-sm text-gray-400">Import an ICS file and view monthly</p>
+        <div className="p-3 rounded-lg bg-secondary-800/40 border border-secondary-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium">Calendar settings moved</h3>
+              <p className="text-xs text-secondary-400">Manage Calendar in the Plugins tab.</p>
+            </div>
+            <button
+              type="button"
+              className="px-3 py-1 rounded bg-primary-600 hover:bg-primary-500 text-white text-sm"
+              onClick={() => setActiveTab('plugins')}
+            >
+              Open Plugins
+            </button>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              className="sr-only peer"
-              checked={calendar.enabled}
-              onChange={(e) => handleWidgetToggle('calendar', e.target.checked)}
-            />
-            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
-          </label>
         </div>
 
-        {calendar.enabled && (
-          <div className="pl-4 border-l-2 border-gray-700 space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="flex-1">
-                <h4 className="text-sm font-medium">Source</h4>
-                <p className="text-xs text-gray-400">Choose between an ICS URL or CalDAV collection</p>
-              </div>
-              <select
-                className="px-2 py-1 bg-secondary-800 border border-secondary-700 rounded text-secondary-100"
-                value={(calendar as any).source || 'ics'}
-                onChange={(e) => handleCalendarSourceChange(e.target.value as 'ics' | 'caldav')}
-              >
-                <option value="ics">ICS</option>
-                <option value="caldav">CalDAV</option>
-              </select>
+        <div className="p-3 rounded-lg bg-secondary-800/40 border border-secondary-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium">Iframe settings moved</h3>
+              <p className="text-xs text-secondary-400">Manage Iframe in the Plugins tab.</p>
             </div>
-
-            {((calendar as any).source || 'ics') === 'ics' && (
-              <>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex-1">
-                    <h4 className="text-sm font-medium">ICS URL</h4>
-                    <p className="text-xs text-gray-400">Use a public URL or place a file in <code className="bg-secondary-700 px-1 rounded">/public</code> and reference it like <code className="bg-secondary-700 px-1 rounded">/calendar.ics</code>. Some remote URLs may require CORS.</p>
-                  </div>
-                </div>
-                <input
-                  type="url"
-                  className="w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  placeholder="/calendar.ics or https://example.com/feed.ics"
-                  value={calendarUrlInput}
-                  onChange={(e) => setCalendarUrlInput(e.target.value)}
-                  onBlur={() => handleCalendarUrlChange(calendarUrlInput)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleCalendarUrlChange(calendarUrlInput);
-                    }
-                  }}
-                />
-              </>
-            )}
-
-            {((calendar as any).source || 'ics') === 'caldav' && (
-              <div className="space-y-3">
-                <div>
-                  <h4 className="text-sm font-medium">CalDAV URL</h4>
-                  <p className="text-xs text-gray-400">Enter the calendar collection URL (e.g., https://server/dav/calendars/user/calendar/). May require CORS/proxy.</p>
-                  <input
-                    type="url"
-                    className="mt-1 w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    placeholder="https://example.com/dav/calendars/user/calendar/"
-                    value={(calendar as any).caldav?.url || ''}
-                    onChange={(e) => handleCalDavChange('url', e.target.value)}
-                  />
-                  <div className="mt-2 flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={Boolean((calendar as any).caldav?.useProxy)}
-                        onChange={(e) => handleCalDavChange('useProxy', e.target.checked)}
-                      />
-                      <span className="text-secondary-300">Use server proxy</span>
-                    </label>
-                    <button
-                      type="button"
-                      className="px-3 py-1 rounded bg-secondary-700 hover:bg-secondary-600 text-secondary-100 text-sm"
-                      onClick={testCalDavConnection}
-                      disabled={testing}
-                    >
-                      {testing ? 'Testing…' : 'Test connection'}
-                    </button>
-                  </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="px-3 py-1 rounded bg-secondary-700 hover:bg-secondary-600 text-secondary-100 text-sm"
-                      onClick={discoverCalendars}
-                      disabled={discovering}
-                    >
-                      {discovering ? 'Discovering…' : 'Discover calendars'}
-                    </button>
-                    {discoverError && (
-                      <span className="text-xs text-red-400">{discoverError}</span>
-                    )}
-                    {testMessage && !discoverError && (
-                      <span className="text-xs text-secondary-300">{testMessage}</span>
-                    )}
-                  </div>
-                  {discoveredCalendars.length === 0 && (calendar as any).caldav?.useProxy && testMessage?.includes('Base:') && (
-                    <div className="text-xs text-secondary-300">
-                      If no calendars are listed, try opening the base in a browser and append your calendar name, e.g. <code className="bg-secondary-700 px-1 rounded">{testMessage.split('Base: ')[1]}</code><span className="opacity-70">&lt;your-calendar&gt;/</span>. Then paste that full URL above.
-                    </div>
-                  )}
-                  {discoveredCalendars.length > 0 && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <select
-                        className="flex-1 px-2 py-1 bg-secondary-800 border border-secondary-700 rounded text-secondary-100"
-                        value={selectedDiscovered}
-                        onChange={(e) => setSelectedDiscovered(e.target.value)}
-                      >
-                        {discoveredCalendars.map((c) => (
-                          <option key={c.href} value={c.href}>{c.name}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        className="px-3 py-1 rounded bg-primary-600 hover:bg-primary-500 text-white text-sm"
-                        onClick={applyDiscovered}
-                      >
-                        Apply
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <h4 className="text-sm font-medium">Username</h4>
-                    <input
-                      type="text"
-                      className="mt-1 w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                      placeholder="username"
-                      value={(calendar as any).caldav?.username || ''}
-                      onChange={(e) => handleCalDavChange('username', e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium">Password</h4>
-                    <input
-                      type="password"
-                      className="mt-1 w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                      placeholder="password"
-                      value={(calendar as any).caldav?.password || ''}
-                      onChange={(e) => handleCalDavChange('password', e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+            <button
+              type="button"
+              className="px-3 py-1 rounded bg-primary-600 hover:bg-primary-500 text-white text-sm"
+              onClick={() => setActiveTab('plugins')}
+            >
+              Open Plugins
+            </button>
           </div>
-        )}
-
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-medium">Iframe Widget</h3>
-            <p className="text-sm text-gray-400">Embed a web page via URL</p>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              className="sr-only peer"
-              checked={iframe.enabled}
-              onChange={(e) => handleWidgetToggle('iframe', e.target.checked)}
-            />
-            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
-          </label>
         </div>
-
-        {iframe.enabled && (
-          <div className="pl-4 border-l-2 border-gray-700 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex-1">
-                <h4 className="text-sm font-medium">URL</h4>
-                <p className="text-xs text-gray-400">Enter a valid http/https URL to embed</p>
-              </div>
-            </div>
-            <input
-              type="url"
-              className="w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              placeholder="https://example.com"
-              value={iframe.url}
-              onChange={(e) => handleIframeUrlChange(e.target.value)}
-            />
-          </div>
-        )}
       </div>
     );
   };
@@ -1350,6 +1192,15 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
             >
               <Icon name="Palette" size={16} />
               <span>Appearance</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('plugins')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded ${
+                activeTab === 'plugins' ? 'bg-primary-500/20 text-primary-400' : 'text-secondary-300 hover:bg-secondary-800'
+              }`}
+            >
+              <Icon name="Puzzle" size={16} />
+              <span>Plugins</span>
             </button>
             <button
               onClick={() => setActiveTab('widgets')}
@@ -1497,6 +1348,33 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
 
             {activeTab === 'appearance' && (
               <AppearanceSettings />
+            )}
+
+            {activeTab === 'plugins' && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Plugins</h3>
+                <p className="text-sm text-secondary-400">Manage pluggable widgets, including Search, Calendar, and Iframe.</p>
+                <div className="space-y-3">
+                  {plugins.map((p) => (
+                    <div key={p.id} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium text-secondary-100">{p.name}</div>
+                          {p.description && (
+                            <div className="text-xs text-secondary-400">{p.description}</div>
+                          )}
+                        </div>
+                        <div className="text-xs text-secondary-500">Area: {p.area}</div>
+                      </div>
+                      {p.Settings ? (
+                        <p.Settings config={config} onConfigChange={onConfigChange} />
+                      ) : (
+                        <div className="text-xs text-secondary-500 italic">Settings managed in Widgets tab.</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {activeTab === 'widgets' && (

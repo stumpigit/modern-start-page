@@ -51,6 +51,10 @@ export interface UserConfig {
   showCategoryBorders: boolean;
   showSearchBar: boolean;
   widgets: WidgetSettings;
+  // Optional plugin-specific configurations keyed by plugin id
+  plugins?: Record<string, any> & {
+    search?: { enabled: boolean; engine?: string };
+  };
   user: string;
 }
 

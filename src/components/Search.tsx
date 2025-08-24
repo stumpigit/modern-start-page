@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react';
+import { useEffect, useState, useContext } from 'react';
 import { ConfigContext } from './ConfigProvider';
 import { Icon } from './Icon';
 
@@ -19,6 +19,18 @@ export default function Search() {
   const [showTooltip, setShowTooltip] = useState(false);
   const [showEngineDropdown, setShowEngineDropdown] = useState(false);
 
+  // Resolve plugin-based configuration with fallback to legacy
+  const pluginCfg = (config.plugins?.search as any) || {};
+  const enabled = typeof pluginCfg.enabled === 'boolean' ? pluginCfg.enabled : Boolean(config.showSearchBar);
+
+  // Initialize engine from config.plugins.search if present
+  useEffect(() => {
+    const cfgEngine = (config.plugins?.search as any)?.engine as SearchEngine | undefined;
+    if (cfgEngine && cfgEngine in searchEngines) {
+      setEngine(cfgEngine);
+    }
+  }, [config.plugins?.search]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
@@ -31,12 +43,28 @@ export default function Search() {
     setQuery('');
   };
 
-  const handleEngineSelect = (selectedEngine: SearchEngine) => {
+  const handleEngineSelect = async (selectedEngine: SearchEngine) => {
     setEngine(selectedEngine);
     setShowEngineDropdown(false);
+    // persist to plugin config
+    try {
+      const next = {
+        ...config,
+        plugins: {
+          ...(config.plugins || {}),
+          search: {
+            enabled,
+            engine: selectedEngine,
+          },
+        },
+      };
+      await onConfigChange(next);
+    } catch (e) {
+      // ignore persist errors in UI
+    }
   };
 
-  if (!config.showSearchBar) return null;
+  if (!enabled) return null;
 
   return (
     <div className="relative z-10 search-container">

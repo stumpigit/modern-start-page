@@ -7,8 +7,7 @@ import DateGreeting from './DateGreeting';
 import SystemStatus from './SystemStatus';
 import { Weather } from './Weather';
 import { Clock } from './Clock';
-import IframeWidget from './Iframe';
-import CalendarWidget from './Calendar';
+import PluginHost from './PluginHost';
 
 interface ConfigProviderProps {
   initialConfig: UserConfig;
@@ -76,11 +75,10 @@ export default function ConfigProvider({ initialConfig, user = '' }: ConfigProvi
           <SystemStatus />
         </div>
       </div>
-      {config.showSearchBar && (
-        <div className="mt-4 sm:mt-6 lg:mt-8">
-          <Search />
-        </div>
-      )}
+      {/* Top-area plugins (e.g., Search) */}
+      <div className="mt-4 sm:mt-6 lg:mt-8">
+        <PluginHost area="top" config={config} />
+      </div>
       <div className="mt-4 sm:mt-6 lg:mt-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {config.widgets?.weather?.enabled && (
@@ -98,19 +96,8 @@ export default function ConfigProvider({ initialConfig, user = '' }: ConfigProvi
       <div className="mt-8 sm:mt-10 lg:mt-12">
         <ContextManager initialConfig={config} />
       </div>
-      {/* Mount calendar widget regardless to ensure effects run; component self-hides when disabled */}
-      <div className="mt-6 sm:mt-8 lg:mt-10 flex justify-center w-full">
-        <div className="max-w-7xl w-full px-2 sm:px-4">
-          <CalendarWidget config={config} />
-        </div>
-      </div>
-      {config.widgets?.iframe?.enabled && (
-        <div className="mt-6 sm:mt-8 lg:mt-10 flex justify-center w-full">
-          <div className="max-w-7xl w-full px-2 sm:px-4">
-            <IframeWidget />
-          </div>
-        </div>
-      )}
+      {/* Full-width plugins (Calendar, Iframe) */}
+      <PluginHost area="full" config={config} />
     </ConfigContext.Provider>
   );
 } 
