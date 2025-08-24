@@ -1,3 +1,4 @@
+import React, { useEffect, useState } from 'react';
 import IframeWidget from '../../../components/Iframe';
 import type { PluginManifest } from '../../types';
 
@@ -15,6 +16,11 @@ export const iframePlugin: PluginManifest = {
   Settings: ({ config, onConfigChange }) => {
     const widgets = (config.widgets || {}) as any;
     const iframe = widgets.iframe || { enabled: false, url: '' };
+    const [url, setUrl] = useState<string>(iframe.url || '');
+
+    useEffect(() => {
+      setUrl(iframe.url || '');
+    }, [iframe.url]);
     const update = async (patch: Partial<{ enabled: boolean; url: string }>) => {
       const next = {
         ...config,
@@ -54,8 +60,9 @@ export const iframePlugin: PluginManifest = {
               type="url"
               className="w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
               placeholder="https://example.com"
-              value={iframe.url || ''}
-              onChange={(e) => update({ url: e.target.value })}
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onBlur={() => update({ url })}
             />
           </div>
         )}

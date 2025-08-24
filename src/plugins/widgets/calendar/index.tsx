@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import CalendarWidget from '../../../components/Calendar';
 import type { PluginManifest } from '../../types';
 
@@ -219,6 +219,19 @@ export const calendarPlugin: PluginManifest = {
       }
     };
 
+    // Local edit buffers to avoid focus loss on each keystroke
+    const [icsUrl, setIcsUrl] = useState<string>(calendar.icsUrl || '');
+    const [calUrl, setCalUrl] = useState<string>((calendar as any).caldav?.url || '');
+    const [calUser, setCalUser] = useState<string>((calendar as any).caldav?.username || '');
+    const [calPass, setCalPass] = useState<string>((calendar as any).caldav?.password || '');
+    const [calProxy, setCalProxy] = useState<boolean>(Boolean((calendar as any).caldav?.useProxy));
+
+    useEffect(() => setIcsUrl(calendar.icsUrl || ''), [calendar.icsUrl]);
+    useEffect(() => setCalUrl((calendar as any).caldav?.url || ''), [(calendar as any).caldav?.url]);
+    useEffect(() => setCalUser((calendar as any).caldav?.username || ''), [(calendar as any).caldav?.username]);
+    useEffect(() => setCalPass((calendar as any).caldav?.password || ''), [(calendar as any).caldav?.password]);
+    useEffect(() => setCalProxy(Boolean((calendar as any).caldav?.useProxy)), [(calendar as any).caldav?.useProxy]);
+
     return (
       <div className="space-y-3 p-3 rounded-lg bg-secondary-800/50 border border-secondary-700">
         <div className="flex items-center justify-between">
@@ -260,8 +273,9 @@ export const calendarPlugin: PluginManifest = {
                   type="url"
                   className="w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   placeholder="/calendar.ics or https://example.com/feed.ics"
-                  value={calendar.icsUrl || ''}
-                  onChange={(e) => updateCalendar({ icsUrl: e.target.value })}
+                  value={icsUrl}
+                  onChange={(e) => setIcsUrl(e.target.value)}
+                  onBlur={() => updateCalendar({ icsUrl })}
                 />
               </div>
             )}
@@ -274,15 +288,16 @@ export const calendarPlugin: PluginManifest = {
                     type="url"
                     className="mt-1 w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
                     placeholder="https://example.com/dav/calendars/user/calendar/"
-                    value={(calendar as any).caldav?.url || ''}
-                    onChange={(e) => updateCalDav('url', e.target.value)}
+                    value={calUrl}
+                    onChange={(e) => setCalUrl(e.target.value)}
+                    onBlur={() => updateCalDav('url', calUrl)}
                   />
                   <div className="mt-2 flex items-center gap-3">
                     <label className="flex items-center gap-2 text-xs text-secondary-300">
                       <input
                         type="checkbox"
-                        checked={Boolean((calendar as any).caldav?.useProxy)}
-                        onChange={(e) => updateCalDav('useProxy', e.target.checked)}
+                        checked={calProxy}
+                        onChange={(e) => { setCalProxy(e.target.checked); updateCalDav('useProxy', e.target.checked); }}
                       />
                       Use server proxy
                     </label>
@@ -337,8 +352,9 @@ export const calendarPlugin: PluginManifest = {
                       type="text"
                       className="mt-1 w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
                       placeholder="username"
-                      value={(calendar as any).caldav?.username || ''}
-                      onChange={(e) => updateCalDav('username', e.target.value)}
+                      value={calUser}
+                      onChange={(e) => setCalUser(e.target.value)}
+                      onBlur={() => updateCalDav('username', calUser)}
                     />
                   </div>
                   <div>
@@ -347,8 +363,9 @@ export const calendarPlugin: PluginManifest = {
                       type="password"
                       className="mt-1 w-full px-3 py-2 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 placeholder-secondary-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
                       placeholder="password"
-                      value={(calendar as any).caldav?.password || ''}
-                      onChange={(e) => updateCalDav('password', e.target.value)}
+                      value={calPass}
+                      onChange={(e) => setCalPass(e.target.value)}
+                      onBlur={() => updateCalDav('password', calPass)}
                     />
                   </div>
                 </div>

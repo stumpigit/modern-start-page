@@ -96,8 +96,7 @@ export default function ConfigProvider({ initialConfig, user = '' }: ConfigProvi
       <div className="mt-8 sm:mt-10 lg:mt-12">
         <ContextManager initialConfig={config} />
       </div>
-      {/* Full-width plugins (Calendar, Iframe) */}
-      <PluginHost area="full" config={config} />
+      {/* Full-width plugins are now rendered via Context items in the grid */}
     </ConfigContext.Provider>
   );
 } 

@@ -24,6 +24,7 @@ import {
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
+  rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -41,7 +42,7 @@ interface SettingsModalProps {
   onConfigChange: (newConfig: UserConfig) => Promise<void>;
 }
 
-type Tab = 'contexts' | 'bookmarks' | 'appearance' | 'plugins' | 'backup' | 'widgets' | 'about';
+type Tab = 'contexts' | 'layout' | 'category' | 'appearance' | 'plugins' | 'backup' | 'widgets' | 'about';
 
 // Add this new component for sortable items
 function SortableItem({ id, children }: { id: string; children: React.ReactNode }) {
@@ -63,7 +64,7 @@ function SortableItem({ id, children }: { id: string; children: React.ReactNode 
       <div className="flex items-center justify-between p-3 bg-secondary-700/50 rounded-lg">
         <div className="flex items-center space-x-2">
           <div 
-            className="cursor-grab active:cursor-grabbing"
+            className="cursor-grab active:cursor-grabbing flex-shrink-0"
             {...attributes}
             {...listeners}
           >
@@ -420,6 +421,138 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
             </label>
           </div>
         </div>
+      </div>
+    );
+  };
+
+  const CategorySettings = () => {
+    const [ctxId, setCtxId] = useState<string>(selectedContextId);
+    const ctx = config.contexts.find((c) => c.id === ctxId) || config.contexts[0];
+
+    const [catName, setCatName] = useState<string>(ctx?.categories?.[0]?.name || '');
+    useEffect(() => {
+      setSelectedContextId(ctxId);
+      if (!ctx.categories?.find((c) => c.name === catName)) {
+        setCatName(ctx.categories?.[0]?.name || '');
+      }
+    }, [ctxId, ctx.categories]);
+
+    const category = (ctx.categories || []).find((c) => c.name === catName);
+
+    const [linksLocal, setLinksLocal] = useState(category?.links || []);
+    useEffect(() => { setLinksLocal(category?.links || []); }, [category?.name]);
+
+    const updateContext = async (nextCtx: Context) => {
+      const next = {
+        ...config,
+        contexts: config.contexts.map((c) => (c.id === nextCtx.id ? nextCtx : c)),
+      };
+      await handleConfigUpdate(next);
+    };
+
+    const addCategory = () => setEditingBookmark({ name: '', displayMode: 'icon', links: [] });
+    const editCategory = () => category && setEditingBookmark(category);
+
+    const removeCategory = async () => {
+      if (!category) return;
+      const newCtx = { ...ctx, categories: (ctx.categories || []).filter((c) => c.name !== category.name) };
+      await updateContext(newCtx);
+      setCatName(newCtx.categories?.[0]?.name || '');
+    };
+
+    const moveLink = async (from: number, to: number) => {
+      if (!category) return;
+      const newLinks = arrayMove(category.links, from, to);
+      const newCtx = {
+        ...ctx,
+        categories: (ctx.categories || []).map((c) => (c.name === category.name ? { ...c, links: newLinks } : c)),
+      };
+      await updateContext(newCtx);
+    };
+
+    const persistLinks = async (newLinks: typeof linksLocal) => {
+      if (!category) return;
+      const newCtx = { ...ctx, categories: (ctx.categories || []).map((c) => (c.name === category.name ? { ...c, links: newLinks } : c)) };
+      await updateContext(newCtx);
+    };
+
+    const addLink = async () => {
+      const next = [...linksLocal, { name: 'New Link', url: 'https://', icon: 'Link' }];
+      setLinksLocal(next);
+      await persistLinks(next);
+    };
+
+    const removeLink = async (index: number) => {
+      const next = linksLocal.filter((_, i) => i !== index);
+      setLinksLocal(next);
+      await persistLinks(next);
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <select
+            value={ctxId}
+            onChange={(e) => setCtxId(e.target.value)}
+            className="px-3 py-1 rounded bg-secondary-800 border border-secondary-700 text-secondary-200"
+          >
+            {config.contexts.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <select
+            value={catName}
+            onChange={(e) => setCatName(e.target.value)}
+            className="px-3 py-1 rounded bg-secondary-800 border border-secondary-700 text-secondary-200"
+          >
+            {(ctx.categories || []).map((c) => (
+              <option key={c.name} value={c.name}>{c.name}</option>
+            ))}
+          </select>
+          <button onClick={addCategory} className="px-3 py-1 rounded bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 flex items-center gap-1 text-sm">
+            <Icon name="Plus" size={16} /> Add
+          </button>
+          <button onClick={editCategory} disabled={!category} className="px-3 py-1 rounded bg-secondary-700 hover:bg-secondary-600 text-secondary-100 text-sm disabled:opacity-50">Edit</button>
+          <button onClick={removeCategory} disabled={!category} className="px-3 py-1 rounded bg-red-600 hover:bg-red-500 text-white text-sm disabled:opacity-50">Delete</button>
+        </div>
+
+        {category ? (
+          <div className="space-y-3">
+            <div className="text-sm text-secondary-300">Links in “{category.name}”</div>
+            <div className="space-y-2">
+              {linksLocal.map((link, idx) => (
+                <div key={idx} className="flex items-center gap-2 bg-secondary-800/50 border border-secondary-700 p-2 rounded">
+                  <input
+                    className="flex-1 px-2 py-1 bg-secondary-900 border border-secondary-700 rounded text-secondary-100 text-sm"
+                    value={link.name}
+                    onChange={(e) => setLinksLocal((prev) => prev.map((l, i) => (i === idx ? { ...l, name: e.target.value } : l)))}
+                    onBlur={() => persistLinks(linksLocal)}
+                  />
+                  <input
+                    className="flex-[2] px-2 py-1 bg-secondary-900 border border-secondary-700 rounded text-secondary-100 text-sm"
+                    value={link.url}
+                    onChange={(e) => setLinksLocal((prev) => prev.map((l, i) => (i === idx ? { ...l, url: e.target.value } : l)))}
+                    onBlur={() => persistLinks(linksLocal)}
+                  />
+                  <input
+                    className="w-40 px-2 py-1 bg-secondary-900 border border-secondary-700 rounded text-secondary-100 text-sm"
+                    value={link.icon}
+                    onChange={(e) => setLinksLocal((prev) => prev.map((l, i) => (i === idx ? { ...l, icon: e.target.value } : l)))}
+                    onBlur={() => persistLinks(linksLocal)}
+                  />
+                  <div className="flex items-center gap-1">
+                    <button className="px-2 py-1 rounded bg-secondary-700 hover:bg-secondary-600 text-secondary-100 text-xs" onClick={() => idx > 0 && moveLink(idx, idx - 1)}>↑</button>
+                    <button className="px-2 py-1 rounded bg-secondary-700 hover:bg-secondary-600 text-secondary-100 text-xs" onClick={() => idx < linksLocal.length - 1 && moveLink(idx, idx + 1)}>↓</button>
+                    <button className="px-2 py-1 rounded bg-red-600 hover:bg-red-500 text-white text-xs" onClick={() => removeLink(idx)}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button onClick={addLink} className="px-3 py-1 rounded bg-secondary-700 hover:bg-secondary-600 text-secondary-100 text-sm">+ Add Link</button>
+          </div>
+        ) : (
+          <div className="text-sm text-secondary-400">No category selected.</div>
+        )}
       </div>
     );
   };
@@ -1139,6 +1272,214 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
     );
   };
 
+  const LayoutSettings = () => {
+    const [selectedId, setSelectedId] = useState<string>(selectedContextId);
+
+    const ctx = config.contexts.find((c) => c.id === selectedId) || config.contexts[0];
+    const items = (ctx as any)?.items as any[] | undefined;
+    const gridColumns = Math.max(1, Number(config.gridColumns || 3));
+    const [activeId, setActiveId] = useState<string | null>(null);
+    const [overId, setOverId] = useState<string | null>(null);
+    // Keep outer selectedContextId in sync for category edit handlers
+    useEffect(() => { setSelectedContextId(selectedId); }, [selectedId]);
+
+    const setContextItems = async (newItems: any[]) => {
+      const nextContexts = config.contexts.map((c) => (c.id === ctx.id ? { ...c, items: newItems } : c));
+      await handleConfigUpdate({ ...config, contexts: nextContexts });
+    };
+
+    const genId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+
+    const initFromCategories = async () => {
+      const newItems = (ctx.categories || []).map((cat, idx) => ({
+        type: 'category',
+        id: genId(`cat${idx}`),
+        categoryName: cat.name,
+      }));
+      await setContextItems(newItems);
+    };
+
+    const handleItemDragEnd = async (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const current = ((config.contexts.find((c) => c.id === ctx.id) as any)?.items || []) as any[];
+      const oldIndex = current.findIndex((i) => i.id === active.id);
+      const newIndex = current.findIndex((i) => i.id === over.id);
+      const newItems = arrayMove(current, oldIndex, newIndex);
+      await setContextItems(newItems);
+    };
+
+    const removeItem = async (id: string) => {
+      const current = (items || []) as any[];
+      const newItems = current.filter((i) => i.id !== id);
+      await setContextItems(newItems);
+    };
+
+    const updateItem = async (id: string, patch: any) => {
+      const current = (items || []) as any[];
+      const newItems = current.map((i) => (i.id === id ? { ...i, ...patch } : i));
+      await setContextItems(newItems);
+    };
+
+    const addPluginItem = async (pluginId: string) => {
+      const current = (items || []) as any[];
+      const newItem = { type: 'plugin', id: genId(pluginId), pluginId } as any;
+      await setContextItems([...current, newItem]);
+    };
+
+    const addCategoryItem = async (categoryName: string) => {
+      const cat = (ctx.categories || []).find((c) => c.name === categoryName);
+      if (!cat) return;
+      const current = (items || []) as any[];
+      const newItem = { type: 'category', id: genId('cat'), categoryName: cat.name } as any;
+      await setContextItems([...current, newItem]);
+    };
+
+    const availablePlugins = [
+      { id: 'calendar', label: 'Calendar' },
+      { id: 'iframe', label: 'Iframe' },
+    ];
+
+    const [selectedCategoryToAdd, setSelectedCategoryToAdd] = useState<string>('');
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-semibold">Context Layout</h3>
+            <select
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+              className="px-3 py-1 rounded bg-secondary-800 border border-secondary-700 text-secondary-200"
+            >
+              {config.contexts.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="text-xs text-secondary-400">Drag using the grip icon</div>
+        </div>
+
+        {!items || items.length === 0 ? (
+          <div className="p-3 rounded-lg bg-secondary-800/40 border border-secondary-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium">No layout items</div>
+                <div className="text-xs text-secondary-400">Initialize from existing categories or add plugins below.</div>
+              </div>
+              <button
+                onClick={initFromCategories}
+                className="px-3 py-1 rounded bg-primary-600 hover:bg-primary-500 text-white text-sm"
+              >
+                Use Categories
+              </button>
+            </div>
+          </div>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={(e) => setActiveId(String(e.active.id))}
+            onDragOver={(e) => setOverId(e.over ? String(e.over.id) : null)}
+            onDragEnd={(e) => { setActiveId(null); setOverId(null); handleItemDragEnd(e); }}
+          >
+            <SortableContext items={items.map((i) => i.id)} strategy={rectSortingStrategy}>
+              <div
+                className="grid items-stretch gap-3 border border-secondary-700/40 border-dashed rounded-lg p-3 bg-secondary-900/40"
+                style={{ gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))` }}
+              >
+                {items.map((it) => {
+                  const plug = it.type === 'plugin' ? plugins.find((p) => p.id === it.pluginId) : null;
+                  const isFull = plug?.area === 'full';
+                  const name = it.type === 'category' ? (it.category?.name || it.categoryName || 'Category') : `Plugin: ${it.pluginId}`;
+                  const span = isFull ? gridColumns : Math.max(1, Math.min(Number(it.colSpan || 1), gridColumns));
+                  return (
+                    <div
+                      key={it.id}
+                      style={{ gridColumn: isFull ? '1 / -1' : (`span ${span} / span ${span}` as any) }}
+                      className={`h-full ${overId === it.id ? 'ring-1 ring-primary-500/50 bg-secondary-800/20' : ''}`}
+                    >
+                      <SortableItem id={it.id}>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="text-secondary-200 text-sm flex-1 min-w-0">
+                            <span className="font-medium truncate block">{name}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {isFull ? (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary-800 text-secondary-300 border border-secondary-700">Full</span>
+                          ) : (
+                            <div className="flex items-center gap-1 text-xs text-secondary-300">
+                              <select
+                                aria-label="Column span"
+                                className="px-1 py-0.5 bg-secondary-800 border border-secondary-700 rounded text-secondary-100 w-14"
+                                value={span}
+                                onChange={(e) => updateItem(it.id, { colSpan: Math.max(1, Math.min(Number(e.target.value), gridColumns)) })}
+                              >
+                                {Array.from({ length: gridColumns }).map((_, idx) => (
+                                  <option key={idx + 1} value={idx + 1}>{idx + 1}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => removeItem(it.id)}
+                            className="p-1 rounded hover:bg-secondary-600"
+                            title="Remove"
+                          >
+                            <Icon name="Trash2" size={16} />
+                          </button>
+                        </div>
+                        {/* No preview; clean dashed borders keep grid visible */}
+                      </SortableItem>
+                    </div>
+                  );
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
+
+        <div className="p-3 rounded-lg bg-secondary-800/40 border border-secondary-700 space-y-3">
+          <div className="text-sm font-medium">Add item</div>
+          <div className="flex flex-wrap gap-2">
+            {availablePlugins.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => addPluginItem(p.id)}
+                className="px-3 py-1 rounded bg-secondary-700 hover:bg-secondary-600 text-secondary-100 text-sm"
+              >
+                + {p.label}
+              </button>
+            ))}
+          </div>
+          {ctx.categories && ctx.categories.length > 0 && (
+            <div className="flex items-center gap-2">
+              <select
+                className="px-2 py-1 rounded bg-secondary-800 border border-secondary-700 text-secondary-200 text-sm"
+                value={selectedCategoryToAdd}
+                onChange={(e) => setSelectedCategoryToAdd(e.target.value)}
+              >
+                <option value="">Select category…</option>
+                {ctx.categories.map((c) => (
+                  <option key={c.name} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => selectedCategoryToAdd && addCategoryItem(selectedCategoryToAdd)}
+                className="px-3 py-1 rounded bg-secondary-700 hover:bg-secondary-600 text-secondary-100 text-sm"
+              >
+                + Add Category Tile
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Category editing moved to Category tab */}
+      </div>
+    );
+  };
+
   return (
     <>
       <div className={`fixed inset-0 bg-black/50 flex items-start justify-center pt-10 z-[1000] ${isOpen ? '' : 'hidden'}`}>
@@ -1175,14 +1516,24 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
               <Icon name="Grid" size={16} />
               <span>Contexts</span>
             </button>
+            {/* Bookmarks tab removed; managed under Layout */}
             <button
-              onClick={() => setActiveTab('bookmarks')}
+              onClick={() => setActiveTab('layout')}
               className={`flex items-center space-x-2 px-4 py-2 rounded ${
-                activeTab === 'bookmarks' ? 'bg-primary-500/20 text-primary-400' : 'text-secondary-300 hover:bg-secondary-800'
+                activeTab === 'layout' ? 'bg-primary-500/20 text-primary-400' : 'text-secondary-300 hover:bg-secondary-800'
               }`}
             >
-              <Icon name="Bookmark" size={16} />
-              <span>Bookmarks</span>
+              <Icon name="LayoutGrid" size={16} />
+              <span>Layout</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('category')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded ${
+                activeTab === 'category' ? 'bg-primary-500/20 text-primary-400' : 'text-secondary-300 hover:bg-secondary-800'
+              }`}
+            >
+              <Icon name="Folder" size={16} />
+              <span>Category</span>
             </button>
             <button
               onClick={() => setActiveTab('appearance')}
@@ -1272,78 +1623,14 @@ export default function SettingsModal({ isOpen, onClose, config, onConfigChange 
               </div>
             )}
 
-            {activeTab === 'bookmarks' && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-4">
-                    <h3 className="text-lg font-semibold">Bookmarks</h3>
-                    <select
-                      value={selectedContextId}
-                      onChange={(e) => setSelectedContextId(e.target.value)}
-                      className="px-3 py-1 rounded bg-secondary-800 border border-secondary-700 text-secondary-200"
-                    >
-                      {config.contexts.map(context => (
-                        <option key={context.id} value={context.id}>
-                          {context.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <button
-                    onClick={() => setEditingBookmark({ name: '', displayMode: 'icon', links: [] })}
-                    className="flex items-center space-x-1 px-3 py-1 rounded bg-primary-500/20 text-primary-400 hover:bg-primary-500/30"
-                  >
-                    <Icon name="Plus" size={16} />
-                    <span>Add Bookmark</span>
-                  </button>
-                </div>
-                {config.contexts
-                  .filter(context => context.id === selectedContextId)
-                  .map(context => (
-                    <div key={context.id} className="space-y-2">
-                      <h4 className="text-primary-400 font-medium">{context.name}</h4>
-                      <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={(event) => handleBookmarkDragEnd(event, context.id)}
-                      >
-                        <SortableContext
-                          items={context.categories.map(category => category.name)}
-                          strategy={verticalListSortingStrategy}
-                        >
-                          <div className="grid gap-2">
-                            {context.categories.map(category => (
-                              <SortableItem key={category.name} id={category.name}>
-                                <div>
-                                  <span className="text-secondary-200">{category.name}</span>
-                                  <span className="text-secondary-400 text-sm ml-2">
-                                    ({category.links.length} links)
-                                  </span>
-                                </div>
-                                <div className="flex space-x-2">
-                                  <button
-                                    onClick={() => handleBookmarkEdit(category)}
-                                    className="p-1 rounded hover:bg-secondary-600"
-                                    title="Edit"
-                                  >
-                                    <Icon name="Pencil" size={16} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleBookmarkDelete(context, category.name)}
-                                    className="p-1 rounded hover:bg-secondary-600"
-                                    title="Delete"
-                                  >
-                                    <Icon name="Trash2" size={16} />
-                                  </button>
-                                </div>
-                              </SortableItem>
-                            ))}
-                          </div>
-                        </SortableContext>
-                      </DndContext>
-                    </div>
-                  ))}
-              </div>
+            {/* Bookmarks tab removed; category management is in Layout tab */}
+
+            {activeTab === 'layout' && (
+              <LayoutSettings />
+            )}
+
+            {activeTab === 'category' && (
+              <CategorySettings />
             )}
 
             {activeTab === 'appearance' && (

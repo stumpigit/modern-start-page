@@ -14,6 +14,23 @@ export interface Context {
   id: string;
   name: string;
   categories: Category[];
+  // Optional new unified layout items; if present, takes precedence over categories during rendering
+  items?: Array<
+    | {
+        type: 'category';
+        id: string;
+        // Reference by name to avoid duplicating links in config
+        categoryName: string;
+        colSpan?: number;
+      }
+    | {
+        type: 'plugin';
+        id: string; // instance id
+        pluginId: string; // matches PluginManifest.id
+        pluginConfig?: any; // instance-level config override
+        colSpan?: number;
+      }
+  >;
 }
 
 export interface WidgetSettings {

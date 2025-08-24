@@ -90,4 +90,3 @@ export const searchPlugin: PluginManifest<SearchConfig> = {
 };
 
 export default searchPlugin;
-

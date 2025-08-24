@@ -25,7 +25,6 @@ export interface PluginManifest<TConfig = any> {
   // Optional JSON-like schema description (free-form)
   configSchema?: any;
   // React components
-  Render: (props: { config: UserConfig }) => JSX.Element | null;
+  Render: (props: { config: UserConfig; instanceConfig?: any }) => JSX.Element | null;
   Settings?: (props: { config: UserConfig; onConfigChange: (newConfig: UserConfig) => Promise<void> }) => JSX.Element | null;
 }
-
